@@ -199,8 +199,8 @@ Developed By: GinkleJeff
         // spawn healing item
         function spawnHealingItem() {
             if (gameOver) return;
-            if (score >= 1000 && healingItems.length === 0) {
-                score -= 1000;
+            if (score >= 10000 && healingItems.length === 0) {
+                score -= 10000;
                 healingItems.push({
                     x: Math.random() * (canvas.width - 30),
                     y: Math.random() * (canvas.height - 30),
@@ -209,8 +209,8 @@ Developed By: GinkleJeff
                     vy: (Math.random() - 0.5) * 2,
                     bounce: 0.8,
                 });
-            } else if (score < 1000) {
-                addScorePopup("Need 1000 points!", cube.x, cube.y - 20);
+            } else if (score < 10000) {
+                addScorePopup("Need 10000 points!", cube.x, cube.y - 20);
             }
         }
 
