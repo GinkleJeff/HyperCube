@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>HyperCube</title>
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            overflow: hidden;
+            font-family: monospace;
+            color: #0ff;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+            background: #000;
+        }
+        #deathScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            color: red;
+            font-size: 80px;
+            font-weight: bold;
+            text-align: center;
+            line-height: 100vh;
+            font-family: monospace;
+            z-index: 9999;
+            display: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="deathScreen">💀YOU DIED💀</div>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const deathScreen = document.getElementById('deathScreen');
+
+        // game state
+        let gameState = 'menu'; // 'menu' or 'playing'
+
+        // player cube
+        const cube = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: 30,
+            color: 'cyan',
+            vx: 0,
+            vy: 0,
+            speed: 2.4,
+            bounce: 0.7,
+            health: 5,
+        };
+
+        // arrays
+        const enemies = [];
+        const lasers = [];
+        const particles = [];
+        const cubeAfterimages = [];
+        const laserAfterimages = [];
+        const scorePopups = [];
+        const healingItems = [];
+
+        // game state variables
+        let score = 0;
+        let gameOver = false;
+        let gameOverTimer = 0;
+        let canSpawnHealingItem = true;
+        let lastYellowDamageTime = -600; // Allow immediate damage at start
+
+        // combo system
+        let combo = 0;
+        let comboTimer = 0;
+        const comboTimeout = 300;
+
+        // score animation state
+        let scoreBumpTimer = 0;
+        let scoreScale = 1;
+
+        // input
+        const keys = {};
+        window.addEventListener('keydown', e => {
+            if (gameState === 'menu' && e.key === 'Enter') {
+                gameState = 'playing';
+                spawnEnemies(); // Initialize first wave
+                return;
+            }
+            if (e.key === ' ' && canSpawnHealingItem && !gameOver && gameState === 'playing') {
+                spawnHealingItem();
+                canSpawnHealingItem = false;
+            }
+            keys[e.key.toLowerCase()] = true;
+        });
+        window.addEventListener('keyup', e => {
+            keys[e.key.toLowerCase()] = false;
+            if (e.key === ' ') canSpawnHealingItem = true;
+        });
+
+        // ASCII art for main menu
+        const titleArt = `
+                                                                                                                                                                                        
+                                
+HHHHHHHHH     HHHHHHHHH                                                                                           CCCCCCCCCCCCC                 bbbbbbbb                                
+H:::::::H     H:::::::H                                                                                        CCC::::::::::::C                 b::::::b                                
+H:::::::H     H:::::::H                                                                                      CC:::::::::::::::C                 b::::::b                                
+HH::::::H     H::::::HH                                                                                     C:::::CCCCCCCC::::C                  b:::::b                                
+  H:::::H     H:::::Hyyyyyyy           yyyyyyyppppp   ppppppppp       eeeeeeeeeeee    rrrrr   rrrrrrrrr    C:::::C       CCCCCCuuuuuu    uuuuuu  b:::::bbbbbbbbb        eeeeeeeeeee    
+  H:::::H     H:::::H y:::::y         y:::::y p::::ppp:::::::::p    ee::::::::::::ee  r::::rrr:::::::::r  C:::::C              u::::u    u::::u  b::::::::::::::bb    ee::::::::::e
+  H::::::HHHHH::::::H  y:::::y       y:::::y  p:::::::::::::::::p  e::::::eeeee:::::eer:::::::::::::::::r C:::::C              u::::u    u::::u  b::::::::::::::::b  e::::::eeeee:e
+  H:::::::::::::::::H   y:::::y     y:::::y   pp::::::ppppp::::::pe::::::e     e:::::err::::::rrrrr::::::rC:::::C              u::::u    u::::u  b:::::bbbbb:::::::be::::::e     ee
+  H:::::::::::::::::H    y:::::y   y:::::y     p:::::p     p:::::pe:::::::eeeee::::::e r:::::r     r:::::rC:::::C              u::::u    u::::u  b:::::b    b::::::be:::::::eeeee:e
+  H::::::HHHHH::::::H     y:::::y y:::::y      p:::::p     p:::::pe:::::::::::::::::e  r:::::r     rrrrrrrC:::::C              u::::u    u::::u  b:::::b     b:::::be:::::::::::::e 
+  H:::::H     H:::::H      y:::::y:::::y       p:::::p     p:::::pe::::::eeeeeeeeeee   r:::::r            C:::::C              u::::u    u::::u  b:::::b     b:::::be::::::eeeeeeee  
+  H:::::H     H:::::H       y:::::::::y        p:::::p    p::::::pe:::::::e            r:::::r             C:::::C       CCCCCCu:::::uuuu:::::u  b:::::b     b:::::be:::::::e           
+HH::::::H     H::::::HH      y:::::::y         p:::::ppppp:::::::pe::::::::e           r:::::r              C:::::CCCCCCCC::::Cu:::::::::::::::uub:::::bbbbbb::::::be::::::::e          
+H:::::::H     H:::::::H       y:::::y          p::::::::::::::::p  e::::::::eeeeeeee   r:::::r               CC:::::::::::::::C u:::::::::::::::ub::::::::::::::::b  e::::::::eeeee  
+H:::::::H     H:::::::H      y:::::y           p::::::::::::::pp    ee:::::::::::::e   r:::::r                 CCC::::::::::::C  uu::::::::uu:::ub:::::::::::::::b    ee::::::::::e  
+HHHHHHHHH     HHHHHHHHH     y:::::y            p::::::pppppppp        eeeeeeeeeeeeee   rrrrrrr                    CCCCCCCCCCCCC    uuuuuuuu  uuuubbbbbbbbbbbbbbbb       eeeeeeeeeee  
+                           y:::::y             p:::::p                                                                                                                                  
+                          y:::::y              p:::::p                                                                                                                                  
+                         y:::::y              p:::::::p                                                                                                                                 
+                        y:::::y               p:::::::p                                                                                                                                 
+                       yyyyyyy                p:::::::p                                                                                                                                 
+                                              ppppppppp
+
+
+Developed By: GinkleJeff
+
+        `.trim();
+
+        // Spawn enemies helper function
+        function spawnEnemies() {
+            // Preserve yellow enemies
+            const yellowEnemies = enemies.filter(e => e.type === 'yellow');
+            enemies.length = 0;
+            enemies.push(...yellowEnemies);
+
+            // Red enemies (random spawn)
+            for (let i = 0; i < 8; i++) {
+                enemies.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    width: 30, height: 30,
+                    type: 'red'
+                });
+            }
+            // Green enemies (wall/ground spawn)
+            for (let i = 0; i < 5; i++) {
+                let side = Math.floor(Math.random() * 4),
+                    e = { width: 30, height: 60, type: 'green', hp: 2, cooldown: Math.random() * 120, direction: 1 };
+                if (side === 0) { e.x = Math.random() * canvas.width; e.y = 0; e.axis = 'x'; }
+                else if (side === 1) { e.x = 0; e.y = Math.random() * canvas.height; e.axis = 'y'; }
+                else if (side === 2) { e.x = canvas.width - e.width; e.y = Math.random() * canvas.height; e.axis = 'y'; }
+                else { e.x = Math.random() * canvas.width; e.y = canvas.height - e.height; e.axis = 'x'; }
+                enemies.push(e);
+            }
+            // Yellow triangle enemies (wall/ground spawn, stationary)
+            for (let i = 0; i < (yellowEnemies.length === 0 ? 3 : 2); i++) {
+                let side = Math.floor(Math.random() * 4),
+                    e = { width: 50, height: 50, type: 'yellow', hp: 1 };
+                if (side === 0) { e.x = Math.random() * canvas.width; e.y = 0; }
+                else if (side === 1) { e.x = 0; e.y = Math.random() * canvas.height; }
+                else if (side === 2) { e.x = canvas.width - e.width; e.y = Math.random() * canvas.height; }
+                else { e.x = Math.random() * canvas.width; e.y = canvas.height - e.height; }
+                enemies.push(e);
+            }
+        }
+
+        // fire a laser
+        function fireLaser(x, y, dx, dy) {
+            lasers.push({ x, y, dx, dy, size: 5 });
+        }
+
+        // spawn explosion particles
+        function spawnParticles(x, y, color, count = 40) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    size: Math.random() * 5 + 3,
+                    color,
+                    life: 30 + Math.random() * 20,
+                    opacity: 1
+                });
+            }
+        }
+
+        // spawn healing item
+        function spawnHealingItem() {
+            if (gameOver) return;
+            if (score >= 1000 && healingItems.length === 0) {
+                score -= 1000;
+                healingItems.push({
+                    x: Math.random() * (canvas.width - 30),
+                    y: Math.random() * (canvas.height - 30),
+                    size: 30,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    bounce: 0.8,
+                });
+            } else if (score < 1000) {
+                addScorePopup("Need 1000 points!", cube.x, cube.y - 20);
+            }
+        }
+
+        // take damage
+        function takeDamage() {
+            if (gameOver) return;
+            cube.health--;
+            spawnParticles(cube.x + cube.size / 2, cube.y + cube.size / 2, 'red', 50);
+            combo = 0;
+            comboTimer = 0;
+
+            if (cube.health <= 0) {
+                gameOver = true;
+                deathScreen.style.display = 'block';
+                setTimeout(() => {
+                    if (confirm('Reload the game?')) location.reload();
+                }, 1500);
+            }
+        }
+
+        // heal player
+        function healPlayer() {
+            cube.health = 5;
+            spawnParticles(cube.x + cube.size / 2, cube.y + cube.size / 2, 'lime', 60);
+            addScorePopup("Healed!", cube.x, cube.y - 20);
+        }
+
+        // add score popup text
+        function addScorePopup(text, x, y) {
+            scorePopups.push({
+                text,
+                x,
+                y,
+                life: 30,
+                vy: -1,
+            });
+        }
+
+        // Check if wave is cleared (exclude yellow enemies)
+        function checkWave() {
+            if (!gameOver && enemies.every(e => e.type === 'yellow')) {
+                spawnEnemies();
+            }
+        }
+
+        function update() {
+            if (gameState !== 'playing' || gameOver) {
+                gameOverTimer++;
+                return;
+            }
+
+            // Debug: reduce health for testing
+            if (keys['h']) {
+                takeDamage();
+                keys['h'] = false;
+            }
+
+            // movement
+            if (keys['arrowleft'] || keys['a']) cube.vx -= cube.speed;
+            if (keys['arrowright'] || keys['d']) cube.vx += cube.speed;
+            if (keys['arrowup'] || keys['w']) cube.vy -= cube.speed;
+            if (keys['arrowdown'] || keys['s']) cube.vy += cube.speed;
+
+            cube.x += cube.vx;
+            cube.y += cube.vy;
+
+            // bounce off walls
+            if (cube.x < 0) { cube.x = 0; cube.vx = Math.abs(cube.vx) * cube.bounce; }
+            if (cube.x + cube.size > canvas.width) {
+                cube.x = canvas.width - cube.size;
+                cube.vx = -Math.abs(cube.vx) * cube.bounce;
+            }
+            if (cube.y < 0) { cube.y = 0; cube.vy = Math.abs(cube.vy) * cube.bounce; }
+            if (cube.y + cube.size > canvas.height) {
+                cube.y = canvas.height - cube.size;
+                cube.vy = -Math.abs(cube.vy) * cube.bounce;
+            }
+
+            // friction
+            cube.vx *= 0.85;
+            cube.vy *= 0.85;
+
+            // afterimages
+            cubeAfterimages.push({ x: cube.x, y: cube.y, size: cube.size, opacity: 0.5, life: 10 });
+            if (cubeAfterimages.length > 20) cubeAfterimages.shift();
+
+            // update healing items
+            for (let i = healingItems.length - 1; i >= 0; i--) {
+                let h = healingItems[i];
+                h.x += h.vx;
+                h.y += h.vy;
+
+                // bounce off walls
+                if (h.x < 0) { h.x = 0; h.vx = Math.abs(h.vx) * h.bounce; }
+                if (h.x + h.size > canvas.width) {
+                    h.x = canvas.width - h.size;
+                    h.vx = -Math.abs(h.vx) * h.bounce;
+                }
+                if (h.y < 0) { h.y = 0; h.vy = Math.abs(h.vy) * h.bounce; }
+                if (h.y + h.size > canvas.height) {
+                    h.y = canvas.height - h.size;
+                    h.vy = -Math.abs(h.vy) * h.bounce;
+                }
+
+                // check collision with player
+                if (cube.x < h.x + h.size && cube.x + cube.size > h.x &&
+                    cube.y < h.y + h.size && cube.y + cube.size > h.y) {
+                    healPlayer();
+                    healingItems.splice(i, 1);
+                }
+            }
+
+            // ENEMY BEHAVIOR LOOP
+            for (let e of enemies) {
+                if (e.type === 'green') {
+                    if (e.axis === 'x') {
+                        e.x += e.direction;
+                        if (e.x < 0 || e.x + e.width > canvas.width) e.direction *= -1;
+                    } else {
+                        e.y += e.direction;
+                        if (e.y < 0 || e.y + e.height > canvas.height) e.direction *= -1;
+                    }
+                    e.cooldown--;
+                    if (e.cooldown <= 0) {
+                        let dx = (cube.x + cube.size / 2) - (e.x + e.width / 2),
+                            dy = (cube.y + cube.size / 2) - (e.y + e.height / 2),
+                            mag = Math.hypot(dx, dy);
+                        fireLaser(e.x + e.width / 2, e.y + e.height / 2, (dx / mag) * 5, (dy / mag) * 5);
+                        e.cooldown = 120;
+                    }
+                } else if (e.type === 'red') {
+                    let dx = (cube.x + cube.size / 2) - (e.x + e.width / 2);
+                    let dy = (cube.y + cube.size / 2) - (e.y + e.height / 2);
+                    let mag = Math.hypot(dx, dy);
+                    if (mag > 0) {
+                        dx /= mag;
+                        dy /= mag;
+                    }
+                    let chaseSpeed = 1.5;
+                    e.x += dx * chaseSpeed;
+                    e.y += dy * chaseSpeed;
+                }
+                // Yellow enemies are stationary, no movement
+            }
+
+            // enemy collision & scoring
+            let isCollidingYellow = false;
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let e = enemies[i];
+                if (cube.x < e.x + e.width && cube.x + cube.size > e.x
+                    && cube.y < e.y + e.height && cube.y + cube.size > e.y) {
+                    let basePoints = e.type === 'red' ? 100 : e.type === 'yellow' ? 150 : 200;
+                    let pointsEarned = basePoints * Math.pow(2, combo);
+
+                    if (e.type === 'red') {
+                        enemies.splice(i, 1);
+                        score += pointsEarned;
+                        spawnParticles(e.x + e.width / 2, e.y + e.height / 2, 'red', 50);
+                        addScorePopup(`+${pointsEarned} Pts!`, e.x + e.width / 2, e.y);
+                        scoreBumpTimer = 10;
+                        combo++;
+                        comboTimer = comboTimeout;
+                    } else if (e.type === 'yellow') {
+                        isCollidingYellow = true;
+                        if (combo >= 6) {
+                            enemies.splice(i, 1);
+                            score += pointsEarned;
+                            spawnParticles(e.x + e.width / 2, e.y + e.height / 2, 'yellow', 50);
+                            addScorePopup(`+${pointsEarned} Pts!`, e.x + e.width / 2, e.y);
+                            scoreBumpTimer = 10;
+                            combo++;
+                            comboTimer = comboTimeout;
+                        } else if (gameOverTimer - lastYellowDamageTime >= 600) {
+                            takeDamage();
+                            lastYellowDamageTime = gameOverTimer;
+                        }
+                    } else if (e.type === 'green') {
+                        e.hp--;
+                        if (e.hp <= 0) {
+                            enemies.splice(i, 1);
+                            score += pointsEarned;
+                            spawnParticles(e.x + e.width / 2, e.y + e.height / 2, 'green', 50);
+                            addScorePopup(`+${pointsEarned} Pts!`, e.x + e.width / 2, e.y);
+                            scoreBumpTimer = 10;
+                            combo++;
+                            comboTimer = comboTimeout;
+                        }
+                    }
+                }
+            }
+
+            // Reset yellow damage timer if not colliding
+            if (!isCollidingYellow) {
+                lastYellowDamageTime = -600;
+            }
+
+            // lasers update & collision
+            for (let i = lasers.length - 1; i >= 0; i--) {
+                let l = lasers[i];
+                laserAfterimages.push({ x: l.x, y: l.y, size: l.size, opacity: 0.5, life: 8 });
+                if (laserAfterimages.length > 50) laserAfterimages.shift();
+
+                l.x += l.dx; l.y += l.dy;
+                if (l.x < 0 || l.x > canvas.width || l.y < 0 || l.y > canvas.height) {
+                    lasers.splice(i, 1); continue;
+                }
+                if (l.x < cube.x + cube.size && l.x + l.size > cube.x
+                    && l.y < cube.y + cube.size && l.y + l.size > cube.y) {
+                    takeDamage();
+                    lasers.splice(i, 1);
+                }
+            }
+
+            // combo timeout
+            if (comboTimer > 0) comboTimer--;
+            else combo = 0;
+
+            // particles update
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                p.opacity = p.life / 50;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            // afterimages update
+            for (let i = cubeAfterimages.length - 1; i >= 0; i--) {
+                let a = cubeAfterimages[i];
+                a.life--;
+                a.opacity = a.life / 10 * 0.5;
+                if (a.life <= 0) cubeAfterimages.splice(i, 1);
+            }
+
+            for (let i = laserAfterimages.length - 1; i >= 0; i--) {
+                let a = laserAfterimages[i];
+                a.life--;
+                a.opacity = a.life / 8 * 0.5;
+                if (a.life <= 0) laserAfterimages.splice(i, 1);
+            }
+
+            // score bump animation
+            if (scoreBumpTimer > 0) {
+                scoreBumpTimer--;
+                scoreScale = 1 + 0.5 * (scoreBumpTimer / 10);
+            } else {
+                scoreScale = 1;
+            }
+
+            // score popup text update
+            for (let i = scorePopups.length - 1; i >= 0; i--) {
+                let sp = scorePopups[i];
+                sp.y += sp.vy;
+                sp.life--;
+                if (sp.life <= 0) scorePopups.splice(i, 1);
+            }
+
+            // check wave completion
+            checkWave();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameState === 'menu') {
+                // Draw main menu
+                ctx.fillStyle = 'cyan';
+                ctx.font = '16px monospace';
+                ctx.textAlign = 'left';
+                const lines = titleArt.split('\n');
+                const lineHeight = 16;
+                const startY = canvas.height / 2 - (lines.length * lineHeight) / 2;
+                lines.forEach((line, i) => {
+                    ctx.fillText(line, 20, startY + i * lineHeight);
+                });
+                ctx.fillStyle = 'yellow';
+                ctx.font = '24px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('Press Enter to Start', canvas.width / 2, startY + lines.length * lineHeight + 40);
+                ctx.textAlign = 'left';
+                return;
+            }
+
+            // draw cube afterimages
+            for (let a of cubeAfterimages) {
+                ctx.fillStyle = `rgba(0,255,255,${a.opacity})`;
+                ctx.fillRect(a.x, a.y, a.size, a.size);
+            }
+
+            // draw lasers afterimages
+            for (let a of laserAfterimages) {
+                ctx.fillStyle = `rgba(255,0,0,${a.opacity})`;
+                ctx.fillRect(a.x, a.y, a.size, a.size);
+            }
+
+            // draw cube
+            ctx.fillStyle = cube.color;
+            ctx.fillRect(cube.x, cube.y, cube.size, cube.size);
+
+            // draw enemies
+            for (let e of enemies) {
+                if (e.type === 'red') {
+                    ctx.fillStyle = 'red';
+                    ctx.fillRect(e.x, e.y, e.width, e.height);
+                } else if (e.type === 'green') {
+                    ctx.fillStyle = 'lime';
+                    ctx.fillRect(e.x, e.y, e.width, e.height);
+                } else if (e.type === 'yellow') {
+                    ctx.fillStyle = 'yellow';
+                    ctx.beginPath();
+                    ctx.moveTo(e.x + e.width / 2, e.y); // Top
+                    ctx.lineTo(e.x, e.y + e.height); // Bottom-left
+                    ctx.lineTo(e.x + e.width, e.y + e.height); // Bottom-right
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+
+            // draw lasers
+            for (let l of lasers) {
+                ctx.fillStyle = 'red';
+                ctx.fillRect(l.x, l.y, l.size, l.size);
+            }
+
+            // draw healing items
+            for (let h of healingItems) {
+                ctx.fillStyle = 'lime';
+                ctx.fillRect(h.x, h.y, h.size, h.size);
+            }
+
+            // draw particles
+            for (let p of particles) {
+                ctx.fillStyle = `rgba(${
+                    p.color === 'red' ? '255,0,0' :
+                    p.color === 'green' ? '0,255,0' :
+                    p.color === 'lime' ? '50,205,50' :
+                    '255,255,0' // yellow
+                },${p.opacity})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // draw score with scale animation
+            ctx.save();
+            ctx.translate(20, 60);
+            ctx.scale(scoreScale, scoreScale);
+            ctx.fillStyle = 'cyan';
+            ctx.font = '48px monospace';
+            ctx.fillText(`Score: ${score}`, 0, 0);
+            ctx.restore();
+
+            // draw combo if any
+            if (combo > 1) {
+                ctx.fillStyle = 'yellow';
+                ctx.font = '28px monospace';
+                ctx.fillText(`Combo x${combo}`, 20, 100);
+            }
+
+            // draw health
+            ctx.fillStyle = cube.health > 2 ? 'lime' : 'red';
+            ctx.font = '32px monospace';
+            ctx.shadowColor = 'black';
+            ctx.shadowBlur = 4;
+            ctx.fillText(`❤ ${cube.health}`, 20, 140);
+            ctx.shadowBlur = 0;
+
+            // draw score popups
+            ctx.fillStyle = 'cyan';
+            ctx.font = '24px monospace';
+            ctx.textAlign = 'center';
+            for (let sp of scorePopups) {
+                ctx.globalAlpha = sp.life / 30;
+                ctx.fillText(sp.text, sp.x, sp.y);
+                ctx.globalAlpha = 1;
+            }
+            ctx.textAlign = 'left';
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+
+        // resize handler
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>
