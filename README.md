@@ -1,67 +1,51 @@
-# 🧊 HyperCube
+HYPERCUBE
+NEW V1.4 UPDATE PATCH NOTES BAYBEEE!!
 
-Welcome to **HyperCube** — the ultra-fast, cube-slamming, laser-dodging, combo-chasing chaos engine where every frame is a war crime against geometry.
+Added Cheats Menu (press C in the main menu)
 
-## 🚀 How to Play
+Only one cheat for now: GODMODE (invincible cube)
 
-- **You are the Cyan Cube.**
-- **MOVE FAST** and **SLAM INTO ENEMIES** to eliminate them.
-- Gain points, dodge lasers, and don't let geometry commit violence on you first.
+Added Boss Rush Mode (jump straight to the boss)
 
-### 🕹️ Controls
+After beating 10 waves in the base game, you now fight the new boss: SHADOW CRYSTAL
 
-| Action         | Key             |
-|----------------|-----------------|
-| Move           | Arrow Keys / WASD |
-| Heal           | Spacebar (Consumes 10,000 Score) |
-| Exit Game      | ESC             |
+Features
+Cyan Cube of Death: You move fast, you kill on contact.
 
-## 💥 Enemies
+Score System: Gain points by killing enemies.
 
-- 🔴 **Red Cubes** – Chase you like your worst mistakes.
-- 🟩 **Green Rectangles** – Camp on walls and fire lasers. They are cowards.
-- 🟨 **Yellow Triangles** – Invincible unless your combo is at least **x6**. Git gud.
+Healing Mechanic:
 
-## 💚 Healing
+Press Numpad 0 to spend 10,000 score and spawn a pink healing cube
 
-Press **Spacebar** to spend **10,000 points** and spawn a bouncing **pink cube** (like a low-poly Mario Superstar on estrogen). Touch it to heal to full HP and explode in particles like an angry Valentine.
+Touch it for full HP (5) and a red particle explosion
 
-## 📈 Score System
+Enemies:
 
-- Every kill adds points.
-- When you gain points:
-  - Score number gets BIG.
-  - A floating **`+X Pts!`** message pops up for dramatic flair.
+Red Cubes: Chase you down
 
-- Combos
- -Every kill gives you x1 combo
- -Every combo adds x2 to your next points (Ex: 100 goes to 200, 200 to 400 and so on)
- -Combo = Fun
+Green Rectangles: Wall-mounted enemies that shoot lasers
 
-## 🔮 Features
+Yellow Triangles: Only vulnerable if you have a combo of x6 or higher
 
-- Ultra-fluid movement
-- Glorious afterimages
-- Over-the-top particle effects
-- Stylish healing mechanic
-- A main menu (so you know it's legit)
+Afterimages & Particles: Visual effects for movement and attacks
 
-## 🔧 Built With
+Dynamic Score Display: Increases size, shakes, and shows a "+X Pts!" effect when scoring
 
-- **Microsoft Visual Studio** (because speed is love, and love is JavaScript)
-- Powered by gamer rage and cube-shaped nightmares
+Main Menu: Includes standard and boss rush modes
 
-## 💬 Credits
+Combo System (coming soon)
 
-Game by **GinkleJeff**  
-Inspired by *Just Shapes and Beats*, *Geometry Dash*, and a hyperactive sugar cube.
+Controls
+WASD / Arrow Keys – Move
 
----
+Numpad 0 – Heal (costs 10,000 score)
 
-### 🧪 Warning:
-HyperCube may cause:
-- Sudden bursts of skill
-- Excessive sweating
-- Belief in the cube as a higher being
+C – Open Cheats Menu (in main menu)
 
-Play responsibly. Or don’t. I’m not your dad.
+Mouse – Navigate menus
+
+Enter – Start game / confirm
+
+Clean. Fast. Violent.
+More updates coming soon.
