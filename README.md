@@ -5,7 +5,7 @@ Added Cheats Menu (press C in the main menu)
 
 Only one cheat for now: GODMODE (invincible cube)
 
-Added Boss Rush Mode (jump straight to the boss)
+Added Boss Rush Mode (jump straight to the boss with B in main menu)
 
 After beating 10 waves in the base game, you now fight the new boss: SHADOW CRYSTAL
 
@@ -16,7 +16,7 @@ Score System: Gain points by killing enemies.
 
 Healing Mechanic:
 
-Press Numpad 0 to spend 10,000 score and spawn a pink healing cube
+Press Spacebar to spend 10,000 score and spawn a pink healing cube
 
 Touch it for full HP (5) and a red particle explosion
 
@@ -34,16 +34,14 @@ Dynamic Score Display: Increases size, shakes, and shows a "+X Pts!" effect when
 
 Main Menu: Includes standard and boss rush modes
 
-Combo System (coming soon)
+Combo System, multiplies every kill's score by 3 (I Think)
 
 Controls
 WASD / Arrow Keys – Move
 
-Numpad 0 – Heal (costs 10,000 score)
+Spacebar – Heal (costs 10,000 score)
 
-C – Open Cheats Menu (in main menu)
-
-Mouse – Navigate menus
+Z – Open Cheats Menu (in main menu)
 
 Enter – Start game / confirm
 
