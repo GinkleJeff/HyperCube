@@ -12,10 +12,12 @@
             color: #0ff;
             user-select: none;
         }
+
         canvas {
             display: block;
             background: #000;
         }
+
         #deathScreen {
             position: fixed;
             top: 0;
@@ -47,12 +49,15 @@
         const deathScreen = document.getElementById('deathScreen');
 
         // game state
-        let gameState = 'menu'; // 'menu' or 'playing'
+        let gameState = 'menu'; // 'menu', 'cheats', 'bossRush', 'playing', 'boss'
+        let waveCount = 0;
+        let boss = null;
+        let godMode = false; // Godmode toggle
 
         // player cube
         const cube = {
             x: canvas.width / 2,
-            y: canvas.height / 2,
+            y: canvas.height - 30,
             size: 30,
             color: 'cyan',
             vx: 0,
@@ -60,6 +65,7 @@
             speed: 2.4,
             bounce: 0.7,
             health: 5,
+            friction: 0.85
         };
 
         // arrays
@@ -77,6 +83,8 @@
         let gameOverTimer = 0;
         let canSpawnHealingItem = true;
         let lastYellowDamageTime = -600; // Allow immediate damage at start
+        let lastBossHit = -30; // Cooldown for boss hits
+        const bossHitCooldown = 30; // ~0.5s at 60 FPS
 
         // combo system
         let combo = 0;
@@ -90,12 +98,35 @@
         // input
         const keys = {};
         window.addEventListener('keydown', e => {
-            if (gameState === 'menu' && e.key === 'Enter') {
-                gameState = 'playing';
-                spawnEnemies(); // Initialize first wave
+            if (gameState === 'menu') {
+                if (e.key === 'Enter') {
+                    gameState = 'playing';
+                    cube.x = canvas.width / 2; // Reset cube to bottom center
+                    cube.y = canvas.height - cube.size;
+                    spawnEnemies(); // Initialize first wave
+                    return;
+                }
+                if (e.key.toLowerCase() === 'z') {
+                    gameState = 'cheats';
+                    return;
+                }
+                if (e.key.toLowerCase() === 'b') {
+                    gameState = 'bossRush';
+                    return;
+                }
+            }
+            if (gameState === 'cheats' && e.key === '1') {
+                godMode = !godMode;
+                addScorePopup(godMode ? "Godmode ON!" : "Godmode OFF!", canvas.width / 2, canvas.height / 2 - 20);
+                gameState = 'menu';
                 return;
             }
-            if (e.key === ' ' && canSpawnHealingItem && !gameOver && gameState === 'playing') {
+            if (gameState === 'bossRush' && e.key === '1') {
+                spawnBoss();
+                gameState = 'boss';
+                return;
+            }
+            if (e.key === ' ' && canSpawnHealingItem && !gameOver && gameState !== 'menu' && gameState !== 'cheats' && gameState !== 'bossRush') {
                 spawnHealingItem();
                 canSpawnHealingItem = false;
             }
@@ -108,35 +139,32 @@
 
         // ASCII art for main menu
         const titleArt = `
-                                                                                                                                                                                        
-                                
-HHHHHHHHH     HHHHHHHHH                                                                                           CCCCCCCCCCCCC                 bbbbbbbb                                
-H:::::::H     H:::::::H                                                                                        CCC::::::::::::C                 b::::::b                                
-H:::::::H     H:::::::H                                                                                      CC:::::::::::::::C                 b::::::b                                
-HH::::::H     H::::::HH                                                                                     C:::::CCCCCCCC::::C                  b:::::b                                
-  H:::::H     H:::::Hyyyyyyy           yyyyyyyppppp   ppppppppp       eeeeeeeeeeee    rrrrr   rrrrrrrrr    C:::::C       CCCCCCuuuuuu    uuuuuu  b:::::bbbbbbbbb        eeeeeeeeeee    
-  H:::::H     H:::::H y:::::y         y:::::y p::::ppp:::::::::p    ee::::::::::::ee  r::::rrr:::::::::r  C:::::C              u::::u    u::::u  b::::::::::::::bb    ee::::::::::e
-  H::::::HHHHH::::::H  y:::::y       y:::::y  p:::::::::::::::::p  e::::::eeeee:::::eer:::::::::::::::::r C:::::C              u::::u    u::::u  b::::::::::::::::b  e::::::eeeee:e
-  H:::::::::::::::::H   y:::::y     y:::::y   pp::::::ppppp::::::pe::::::e     e:::::err::::::rrrrr::::::rC:::::C              u::::u    u::::u  b:::::bbbbb:::::::be::::::e     ee
-  H:::::::::::::::::H    y:::::y   y:::::y     p:::::p     p:::::pe:::::::eeeee::::::e r:::::r     r:::::rC:::::C              u::::u    u::::u  b:::::b    b::::::be:::::::eeeee:e
-  H::::::HHHHH::::::H     y:::::y y:::::y      p:::::p     p:::::pe:::::::::::::::::e  r:::::r     rrrrrrrC:::::C              u::::u    u::::u  b:::::b     b:::::be:::::::::::::e 
-  H:::::H     H:::::H      y:::::y:::::y       p:::::p     p:::::pe::::::eeeeeeeeeee   r:::::r            C:::::C              u::::u    u::::u  b:::::b     b:::::be::::::eeeeeeee  
-  H:::::H     H:::::H       y:::::::::y        p:::::p    p::::::pe:::::::e            r:::::r             C:::::C       CCCCCCu:::::uuuu:::::u  b:::::b     b:::::be:::::::e           
-HH::::::H     H::::::HH      y:::::::y         p:::::ppppp:::::::pe::::::::e           r:::::r              C:::::CCCCCCCC::::Cu:::::::::::::::uub:::::bbbbbb::::::be::::::::e          
-H:::::::H     H:::::::H       y:::::y          p::::::::::::::::p  e::::::::eeeeeeee   r:::::r               CC:::::::::::::::C u:::::::::::::::ub::::::::::::::::b  e::::::::eeeee  
-H:::::::H     H:::::::H      y:::::y           p::::::::::::::pp    ee:::::::::::::e   r:::::r                 CCC::::::::::::C  uu::::::::uu:::ub:::::::::::::::b    ee::::::::::e  
-HHHHHHHHH     HHHHHHHHH     y:::::y            p::::::pppppppp        eeeeeeeeeeeeee   rrrrrrr                    CCCCCCCCCCCCC    uuuuuuuu  uuuubbbbbbbbbbbbbbbb       eeeeeeeeeee  
-                           y:::::y             p:::::p                                                                                                                                  
-                          y:::::y              p:::::p                                                                                                                                  
-                         y:::::y              p:::::::p                                                                                                                                 
-                        y:::::y               p:::::::p                                                                                                                                 
-                       yyyyyyy                p:::::::p                                                                                                                                 
+HHHHHHHHH     HHHHHHHHH                                                                                           CCCCCCCCCCCCC                 bbbbbbbb
+H:::::::H     H:::::::H                                                                                        CCC::::::::::::C                 b::::::b
+H:::::::H     H:::::::H                                                                                      CC:::::::::::::::C                 b::::::b
+HH::::::H     H::::::HH                                                                                     C:::::CCCCCCCC::::C                  b:::::b
+  H:::::H     H:::::Hyyyyyyy           yyyyyyyppppp   ppppppppp       eeeeeeeeeeee    rrrrr   rrrrrrrrr    C:::::C       CCCCCCuuuuuu    uuuuuu  b:::::bbbbbbbbb        eeeeeeeeeeee
+  H:::::H     H:::::H y:::::y         y:::::y p::::ppp:::::::::p    ee::::::::::::ee  r::::rrr:::::::::r  C:::::C              u::::u    u::::u  b::::::::::::::bb    ee::::::::::::ee
+  H::::::HHHHH::::::H  y:::::y       y:::::y  p:::::::::::::::::p  e::::::eeeee:::::eer:::::::::::::::::r C:::::C              u::::u    u::::u  b::::::::::::::::b  e::::::eeeee:::::ee
+  H:::::::::::::::::H   y:::::y     y:::::y   pp::::::ppppp::::::pe::::::e     e:::::err::::::rrrrr::::::rC:::::C              u::::u    u::::u  b:::::bbbbb:::::::be::::::e     e:::::e
+  H:::::::::::::::::H    y:::::y   y:::::y     p:::::p     p:::::pe:::::::eeeee::::::e r:::::r     r:::::rC:::::C              u::::u    u::::u  b:::::b    b::::::be:::::::eeeee::::::e
+  H::::::HHHHH::::::H     y:::::y y:::::y      p:::::p     p:::::pe:::::::::::::::::e  r:::::r     rrrrrrrC:::::C              u::::u    u::::u  b:::::b     b:::::be:::::::::::::::::e
+  H:::::H     H:::::H      y:::::y:::::y       p:::::p     p:::::pe::::::eeeeeeeeeee   r:::::r            C:::::C              u::::u    u::::u  b:::::b     b:::::be::::::eeeeeeeeeee
+  H:::::H     H:::::H       y:::::::::y        p:::::p    p::::::pe:::::::e            r:::::r             C:::::C       CCCCCCu:::::uuuu:::::u  b:::::b     b:::::be:::::::e
+HH::::::H     H::::::HH      y:::::::y         p:::::ppppp:::::::pe::::::::e           r:::::r              C:::::CCCCCCCC::::Cu:::::::::::::::uub:::::bbbbbb::::::be::::::::e
+H:::::::H     H:::::::H       y:::::y          p::::::::::::::::p  e::::::::eeeeeeee   r:::::r               CC:::::::::::::::C u:::::::::::::::ub::::::::::::::::b  e::::::::eeeeeeee
+H:::::::H     H:::::::H      y:::::y           p::::::::::::::pp    ee:::::::::::::e   r:::::r                 CCC::::::::::::C  uu::::::::uu:::ub:::::::::::::::b    ee:::::::::::::e
+HHHHHHHHH     HHHHHHHHH     y:::::y            p::::::pppppppp        eeeeeeeeeeeeee   rrrrrrr                    CCCCCCCCCCCCC    uuuuuuuu  uuuubbbbbbbbbbbbbbbb       eeeeeeeeeeeeee
+                           y:::::y             p:::::p
+                          y:::::y              p:::::p
+                         y:::::y              p:::::::p
+                        y:::::y               p:::::::p
+                       yyyyyyy                p:::::::p
                                               ppppppppp
 
+Developed by: GinkleJeff
 
-Developed By: GinkleJeff
-
-        `.trim();
+            `.trim();
 
         // Spawn enemies helper function
         function spawnEnemies() {
@@ -174,6 +202,132 @@ Developed By: GinkleJeff
                 else { e.x = Math.random() * canvas.width; e.y = canvas.height - e.height; }
                 enemies.push(e);
             }
+        }
+
+        // Spawn boss
+        function spawnBoss() {
+            gameState = 'boss';
+            boss = {
+                x: canvas.width / 2 - 125,
+                y: canvas.height / 2 - 125,
+                width: 250,
+                height: 250,
+                type: 'boss',
+                hp: 20,
+                cooldown: 90,
+                vx: 0,
+                vy: 0,
+                bounce: 0.7,
+                friction: 0.95
+            };
+            enemies.length = 0; // Clear all enemies
+            cube.x = canvas.width / 2; // Place cube at bottom center
+            cube.y = canvas.height - cube.size;
+            addScorePopup("BOSS: SHADOW CRYSTAL!", canvas.width / 2, canvas.height / 2);
+            console.log('Boss spawn, cube:', cube.x, cube.y, 'boss:', boss.x, boss.y);
+        }
+
+        // Fire boss laser
+        function fireBossLaser(x, y, dx, dy) {
+            lasers.push({ x, y, dx, dy, size: 20, color: 'pink', isBossLaser: true });
+            laserAfterimages.push({ x, y, size: 20, opacity: 0.5, life: 12, color: 'pink' });
+        }
+
+        // Update boss
+        function updateBoss() {
+            if (!boss) return;
+            // Move toward player
+            let dx = (cube.x + cube.size / 2) - (boss.x + boss.width / 2);
+            let dy = (cube.y + cube.size / 2) - (boss.y + boss.height / 2);
+            let mag = Math.hypot(dx, dy);
+            if (mag > 0) {
+                dx /= mag;
+                dy /= mag;
+            }
+            let chaseSpeed = 0.5;
+            boss.x += dx * chaseSpeed;
+            boss.y += dy * chaseSpeed;
+
+            // Apply velocity from collisions
+            boss.x += boss.vx;
+            boss.y += boss.vy;
+
+            // Bounce off walls
+            if (boss.x < 0) { boss.x = 0; boss.vx = Math.abs(boss.vx) * boss.bounce; }
+            if (boss.x + boss.width > canvas.width) {
+                boss.x = canvas.width - boss.width;
+                boss.vx = -Math.abs(boss.vx) * boss.bounce;
+            }
+            if (boss.y < 0) { boss.y = 0; boss.vy = Math.abs(boss.vy) * boss.bounce; }
+            if (boss.y + boss.height > canvas.height) {
+                boss.y = canvas.height - boss.height;
+                boss.vy = -Math.abs(boss.vy) * boss.bounce;
+            }
+
+            // Apply friction to boss velocity
+            boss.vx *= boss.friction;
+            boss.vy *= boss.friction;
+
+            // Fire lasers aimed at player
+            boss.cooldown--;
+            if (boss.cooldown <= 0) {
+                const cx = boss.x + boss.width / 2;
+                const cy = boss.y + boss.height / 2;
+                const px = cube.x + cube.size / 2;
+                const py = cube.y + cube.size / 2;
+                const dx = (px - cx);
+                const dy = (py - cy);
+                const mag = Math.hypot(dx, dy);
+                const speed = 8;
+                if (mag > 0) {
+                    // Fire 4 lasers in a spread around player's direction
+                    const angle = Math.atan2(dy, dx);
+                    fireBossLaser(cx, cy, Math.cos(angle) * speed, Math.sin(angle) * speed);
+                    fireBossLaser(cx, cy, Math.cos(angle + Math.PI / 4) * speed, Math.sin(angle + Math.PI / 4) * speed);
+                    fireBossLaser(cx, cy, Math.cos(angle - Math.PI / 4) * speed, Math.sin(angle - Math.PI / 4) * speed);
+                    fireBossLaser(cx, cy, Math.cos(angle + Math.PI / 2) * speed, Math.sin(angle + Math.PI / 2) * speed);
+                }
+                boss.cooldown = 90;
+            }
+        }
+
+        // Draw boss
+        function drawBoss() {
+            if (!boss) return;
+            ctx.fillStyle = 'purple';
+            ctx.beginPath();
+            ctx.moveTo(boss.x + boss.width / 2, boss.y); // Top
+            ctx.lineTo(boss.x + boss.width, boss.y + boss.height / 2); // Right
+            ctx.lineTo(boss.x + boss.width / 2, boss.y + boss.height); // Bottom
+            ctx.lineTo(boss.x, boss.y + boss.height / 2); // Left
+            ctx.closePath();
+            ctx.fill();
+            // Draw boss HP
+            ctx.fillStyle = 'purple';
+            ctx.font = '24px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`HP: ${boss.hp}`, boss.x + boss.width / 2, boss.y + boss.height + 30);
+            ctx.textAlign = 'left';
+        }
+
+        // Check if point is inside rhombus
+        function pointInRhombus(px, py, boss) {
+            const vertices = [
+                { x: boss.x + boss.width / 2, y: boss.y }, // Top
+                { x: boss.x + boss.width, y: boss.y + boss.height / 2 }, // Right
+                { x: boss.x + boss.width / 2, y: boss.y + boss.height }, // Bottom
+                { x: boss.x, y: boss.y + boss.height / 2 } // Left
+            ];
+            let inside = false;
+            for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+                if (
+                    ((vertices[i].y > py) !== (vertices[j].y > py)) &&
+                    (px < (vertices[j].x - vertices[i].x) * (py - vertices[i].y) / (vertices[j].y - vertices[i].y) + vertices[i].x)
+                ) {
+                    inside = !inside;
+                }
+            }
+            return inside;
         }
 
         // fire a laser
@@ -216,7 +370,7 @@ Developed By: GinkleJeff
 
         // take damage
         function takeDamage() {
-            if (gameOver) return;
+            if (gameOver || godMode) return;
             cube.health--;
             spawnParticles(cube.x + cube.size / 2, cube.y + cube.size / 2, 'red', 50);
             combo = 0;
@@ -236,6 +390,7 @@ Developed By: GinkleJeff
             cube.health = 5;
             spawnParticles(cube.x + cube.size / 2, cube.y + cube.size / 2, 'lime', 60);
             addScorePopup("Healed!", cube.x, cube.y - 20);
+            console.log('Healing collision');
         }
 
         // add score popup text
@@ -244,21 +399,27 @@ Developed By: GinkleJeff
                 text,
                 x,
                 y,
-                life: 30,
+                life: 60,
                 vy: -1,
             });
         }
 
         // Check if wave is cleared (exclude yellow enemies)
         function checkWave() {
-            if (!gameOver && enemies.every(e => e.type === 'yellow')) {
-                spawnEnemies();
+            if (!gameOver && gameState === 'playing' && enemies.every(e => e.type === 'yellow')) {
+                waveCount++;
+                if (waveCount >= 10) {
+                    spawnBoss();
+                } else {
+                    spawnEnemies();
+                }
             }
         }
 
         function update() {
-            if (gameState !== 'playing' || gameOver) {
-                gameOverTimer++;
+            gameOverTimer++; // Increment timer always
+
+            if (gameState === 'menu' || gameState === 'cheats' || gameState === 'bossRush' || gameOver) {
                 return;
             }
 
@@ -290,8 +451,8 @@ Developed By: GinkleJeff
             }
 
             // friction
-            cube.vx *= 0.85;
-            cube.vy *= 0.85;
+            cube.vx *= cube.friction;
+            cube.vy *= cube.friction;
 
             // afterimages
             cubeAfterimages.push({ x: cube.x, y: cube.y, size: cube.size, opacity: 0.5, life: 10 });
@@ -360,10 +521,11 @@ Developed By: GinkleJeff
             let isCollidingYellow = false;
             for (let i = enemies.length - 1; i >= 0; i--) {
                 let e = enemies[i];
-                if (cube.x < e.x + e.width && cube.x + cube.size > e.x
-                    && cube.y < e.y + e.height && cube.y + cube.size > e.y) {
+                if (cube.x < e.x + e.width && cube.x + cube.size > e.x &&
+                    cube.y < e.y + e.height && cube.y + cube.size > e.y) {
                     let basePoints = e.type === 'red' ? 100 : e.type === 'yellow' ? 150 : 200;
                     let pointsEarned = basePoints * Math.pow(2, combo);
+                    console.log('Enemy hit:', e.type, 'Points:', pointsEarned);
 
                     if (e.type === 'red') {
                         enemies.splice(i, 1);
@@ -375,7 +537,7 @@ Developed By: GinkleJeff
                         comboTimer = comboTimeout;
                     } else if (e.type === 'yellow') {
                         isCollidingYellow = true;
-                        if (combo >= 6) {
+                        if (godMode || combo >= 6) {
                             enemies.splice(i, 1);
                             score += pointsEarned;
                             spawnParticles(e.x + e.width / 2, e.y + e.height / 2, 'yellow', 50);
@@ -402,6 +564,61 @@ Developed By: GinkleJeff
                 }
             }
 
+            // Boss collision
+            if (boss && cube.x < boss.x + boss.width && cube.x + cube.size > boss.x &&
+                cube.y < boss.y + boss.height && cube.y + cube.size > boss.y) {
+                // Check if cube center is inside rhombus
+                const cubeCenterX = cube.x + cube.size / 2;
+                const cubeCenterY = cube.y + cube.size / 2;
+                if (pointInRhombus(cubeCenterX, cubeCenterY, boss) && gameOverTimer - lastBossHit >= bossHitCooldown) {
+                    console.log('Boss collision, cube:', cube.x, cube.y, 'boss:', boss.x, boss.y, 'frame:', gameOverTimer);
+                    // Apply knockback to boss
+                    let dx = (boss.x + boss.width / 2) - (cube.x + cube.size / 2);
+                    let dy = (boss.y + boss.height / 2) - (cube.y + cube.size / 2);
+                    let mag = Math.hypot(dx, dy);
+                    if (mag > 0) {
+                        dx /= mag;
+                        dy /= mag;
+                    }
+                    boss.vx = dx * 20; // Strong knockback for boss
+                    boss.vy = dy * 20;
+                    boss.x += boss.vx; // Move boss immediately
+                    boss.y += boss.vy;
+
+                    // Push cube out of boss hitbox
+                    const overlapX = Math.min(cube.x + cube.size - boss.x, boss.x + boss.width - cube.x);
+                    const overlapY = Math.min(cube.y + cube.size - boss.y, boss.y + boss.height - cube.y);
+                    if (overlapX < overlapY) {
+                        if (cube.x < boss.x + boss.width / 2) cube.x = boss.x - cube.size;
+                        else cube.x = boss.x + boss.width;
+                    } else {
+                        if (cube.y < boss.y + boss.height / 2) cube.y = boss.y - cube.size;
+                        else cube.y = boss.y + boss.height;
+                    }
+
+                    // Damage boss
+                    boss.hp--;
+                    score += 1000;
+                    spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'purple', 20);
+                    addScorePopup("Boss Hit! +1000", boss.x + boss.width / 2, boss.y);
+                    lastBossHit = gameOverTimer;
+                    console.log('Boss hit, HP:', boss.hp, 'boss vx:', boss.vx, 'vy:', boss.vy);
+
+                    if (boss.hp <= 0) {
+                        spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'red', 100);
+                        spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'pink', 100);
+                        spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'yellow', 100);
+                        score += 10000;
+                        addScorePopup("BOSS DEFEATED! +10000", canvas.width / 2, canvas.height / 2);
+                        boss = null;
+                        gameState = 'playing';
+                        waveCount = 0;
+                        spawnEnemies();
+                        console.log('Boss died');
+                    }
+                }
+            }
+
             // Reset yellow damage timer if not colliding
             if (!isCollidingYellow) {
                 lastYellowDamageTime = -600;
@@ -410,15 +627,22 @@ Developed By: GinkleJeff
             // lasers update & collision
             for (let i = lasers.length - 1; i >= 0; i--) {
                 let l = lasers[i];
-                laserAfterimages.push({ x: l.x, y: l.y, size: l.size, opacity: 0.5, life: 8 });
+                laserAfterimages.push({
+                    x: l.x,
+                    y: l.y,
+                    size: l.size,
+                    opacity: 0.5,
+                    life: 12,
+                    color: l.isBossLaser ? 'pink' : 'red'
+                });
                 if (laserAfterimages.length > 50) laserAfterimages.shift();
 
                 l.x += l.dx; l.y += l.dy;
                 if (l.x < 0 || l.x > canvas.width || l.y < 0 || l.y > canvas.height) {
                     lasers.splice(i, 1); continue;
                 }
-                if (l.x < cube.x + cube.size && l.x + l.size > cube.x
-                    && l.y < cube.y + cube.size && l.y + l.size > cube.y) {
+                if (!godMode && l.x < cube.x + cube.size && l.x + l.size > cube.x &&
+                    l.y < cube.y + cube.size && l.y + l.size > cube.y) {
                     takeDamage();
                     lasers.splice(i, 1);
                 }
@@ -449,7 +673,7 @@ Developed By: GinkleJeff
             for (let i = laserAfterimages.length - 1; i >= 0; i--) {
                 let a = laserAfterimages[i];
                 a.life--;
-                a.opacity = a.life / 8 * 0.5;
+                a.opacity = a.life / 12 * 0.5;
                 if (a.life <= 0) laserAfterimages.splice(i, 1);
             }
 
@@ -468,6 +692,9 @@ Developed By: GinkleJeff
                 sp.life--;
                 if (sp.life <= 0) scorePopups.splice(i, 1);
             }
+
+            // Update boss
+            updateBoss();
 
             // check wave completion
             checkWave();
@@ -491,7 +718,36 @@ Developed By: GinkleJeff
                 ctx.font = '24px monospace';
                 ctx.textAlign = 'center';
                 ctx.fillText('Press Enter to Start', canvas.width / 2, startY + lines.length * lineHeight + 40);
+                ctx.fillText('Press Z for Cheat Menu', canvas.width / 2, startY + lines.length * lineHeight + 80);
+                ctx.fillText('Press B for Boss Rush', canvas.width / 2, startY + lines.length * lineHeight + 120);
                 ctx.textAlign = 'left';
+                console.log('Menu drawn');
+                return;
+            }
+
+            if (gameState === 'cheats') {
+                // Draw cheats menu
+                ctx.fillStyle = 'cyan';
+                ctx.font = '24px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('CHEATS MENU', canvas.width / 2, canvas.height / 2 - 40);
+                ctx.fillStyle = 'yellow';
+                ctx.fillText('Press 1 for Godmode', canvas.width / 2, canvas.height / 2);
+                ctx.textAlign = 'left';
+                console.log('Cheats menu');
+                return;
+            }
+
+            if (gameState === 'bossRush') {
+                // Draw boss rush menu
+                ctx.fillStyle = 'cyan';
+                ctx.font = '24px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('BOSS RUSH MENU', canvas.width / 2, canvas.height / 2 - 40);
+                ctx.fillStyle = 'yellow';
+                ctx.fillText('Press 1 for Shadow Crystal', canvas.width / 2, canvas.height / 2);
+                ctx.textAlign = 'left';
+                console.log('Boss Rush menu');
                 return;
             }
 
@@ -503,7 +759,8 @@ Developed By: GinkleJeff
 
             // draw lasers afterimages
             for (let a of laserAfterimages) {
-                ctx.fillStyle = `rgba(255,0,0,${a.opacity})`;
+                ctx.fillStyle = `rgba(${a.color === 'pink' ? '255,105,180' : '255,0,0'
+                    },${a.opacity})`;
                 ctx.fillRect(a.x, a.y, a.size, a.size);
             }
 
@@ -530,9 +787,12 @@ Developed By: GinkleJeff
                 }
             }
 
+            // draw boss
+            drawBoss();
+
             // draw lasers
             for (let l of lasers) {
-                ctx.fillStyle = 'red';
+                ctx.fillStyle = l.isBossLaser ? 'pink' : 'red';
                 ctx.fillRect(l.x, l.y, l.size, l.size);
             }
 
@@ -544,12 +804,13 @@ Developed By: GinkleJeff
 
             // draw particles
             for (let p of particles) {
-                ctx.fillStyle = `rgba(${
-                    p.color === 'red' ? '255,0,0' :
-                    p.color === 'green' ? '0,255,0' :
-                    p.color === 'lime' ? '50,205,50' :
-                    '255,255,0' // yellow
-                },${p.opacity})`;
+                ctx.fillStyle = `rgba(${p.color === 'red' ? '255,0,0' :
+                        p.color === 'green' ? '0,255,0' :
+                            p.color === 'lime' ? '50,205,50' :
+                                p.color === 'purple' ? '128,0,128' :
+                                    p.color === 'pink' ? '255,105,180' :
+                                        '255,255,0'
+                    },${p.opacity})`;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 ctx.fill();
@@ -584,7 +845,7 @@ Developed By: GinkleJeff
             ctx.font = '24px monospace';
             ctx.textAlign = 'center';
             for (let sp of scorePopups) {
-                ctx.globalAlpha = sp.life / 30;
+                ctx.globalAlpha = sp.life / 60;
                 ctx.fillText(sp.text, sp.x, sp.y);
                 ctx.globalAlpha = 1;
             }
@@ -597,12 +858,18 @@ Developed By: GinkleJeff
             requestAnimationFrame(loop);
         }
 
+        console.log('Script start');
         loop();
 
         // resize handler
         window.addEventListener('resize', () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            // Ensure cube stays in bounds on resize
+            if (cube.x + cube.size > canvas.width) cube.x = canvas.width - cube.size;
+            if (cube.y + cube.size > canvas.height) cube.y = canvas.height - cube.size;
+            if (cube.x < 0) cube.x = 0;
+            if (cube.y < 0) cube.y = 0;
         });
     </script>
 </body>
