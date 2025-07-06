@@ -49,23 +49,36 @@
         const deathScreen = document.getElementById('deathScreen');
 
         // game state
-        let gameState = 'menu'; // 'menu', 'cheats', 'bossRush', 'playing', 'boss'
+        let gameState = 'menu'; // 'menu', 'cheats', 'characters', 'playing', 'boss'
         let waveCount = 0;
-        let boss = null;
-        let godMode = false; // Godmode toggle
+        let bosses = [];
+        let godMode = false;
+        let oneHitBoss = false;
+        let lameMode = false;
+        let charactersUnlocked = false;
+        let shadowCrystalSpawned = false;
+        let amberGyroidSpawned = false;
+        let hexagonizerSpawned = false;
+        let cheatInput = '';
+        let cheatMessage = '';
 
-        // player cube
-        const cube = {
+        // player
+        const player = {
             x: canvas.width / 2,
             y: canvas.height - 30,
             size: 30,
             color: 'cyan',
+            type: 'cube',
+            width: 30,
+            height: 30,
             vx: 0,
             vy: 0,
             speed: 2.4,
             bounce: 0.7,
             health: 5,
-            friction: 0.85
+            maxHealth: 5,
+            friction: 0.85,
+            cooldown: 0
         };
 
         // arrays
@@ -82,9 +95,9 @@
         let gameOver = false;
         let gameOverTimer = 0;
         let canSpawnHealingItem = true;
-        let lastYellowDamageTime = -600; // Allow immediate damage at start
-        let lastBossHit = -30; // Cooldown for boss hits
-        const bossHitCooldown = 30; // ~0.5s at 60 FPS
+        let lastYellowDamageTime = -600;
+        let lastBossHit = -30;
+        const bossHitCooldown = 30;
 
         // combo system
         let combo = 0;
@@ -101,34 +114,126 @@
             if (gameState === 'menu') {
                 if (e.key === 'Enter') {
                     gameState = 'playing';
-                    cube.x = canvas.width / 2; // Reset cube to bottom center
-                    cube.y = canvas.height - cube.size;
-                    spawnEnemies(); // Initialize first wave
+                    resetPlayer();
+                    spawnEnemies();
                     return;
                 }
-                if (e.key.toLowerCase() === 'z') {
+                if (e.key === '`') {
                     gameState = 'cheats';
+                    cheatInput = '';
+                    cheatMessage = '';
                     return;
                 }
                 if (e.key.toLowerCase() === 'b') {
                     gameState = 'bossRush';
                     return;
                 }
+                if (e.key.toLowerCase() === 'p' && charactersUnlocked) {
+                    gameState = 'characters';
+                    return;
+                }
             }
-            if (gameState === 'cheats' && e.key === '1') {
-                godMode = !godMode;
-                addScorePopup(godMode ? "Godmode ON!" : "Godmode OFF!", canvas.width / 2, canvas.height / 2 - 20);
-                gameState = 'menu';
-                return;
+            if (gameState === 'cheats') {
+                if (e.key === 'Escape') {
+                    gameState = 'menu';
+                    cheatInput = '';
+                    cheatMessage = '';
+                    return;
+                }
+                if (e.key === 'Enter') {
+                    const code = cheatInput.toLowerCase();
+                    if (code === 'cubeforthecubegod') {
+                        godMode = !godMode;
+                        cheatMessage = `Cheatcode Godmode ${godMode ? 'Applied' : 'Disabled'}`;
+                    } else if (code === 'protocal.v_activated') {
+                        oneHitBoss = !oneHitBoss;
+                        cheatMessage = `Cheatcode 1-Hit Boss Kills ${oneHitBoss ? 'Applied' : 'Disabled'}`;
+                    } else if (code === 'iamsolame') {
+                        lameMode = !lameMode;
+                        cheatMessage = `Cheatcode 999 Healing Cubes ${lameMode ? 'Applied' : 'Disabled'}`;
+                    } else if (code === 'shape_warcrimes') {
+                        charactersUnlocked = true;
+                        cheatMessage = 'Cheatcode Characters Unlocked';
+                    } else {
+                        cheatMessage = 'Invalid Cheat Code';
+                    }
+                    cheatInput = '';
+                    return;
+                }
+                if (e.key === 'Backspace') {
+                    cheatInput = cheatInput.slice(0, -1);
+                    return;
+                }
+                if (e.key.length === 1) {
+                    cheatInput += e.key;
+                    return transforme;
+                }
             }
-            if (gameState === 'bossRush' && e.key === '1') {
-                spawnBoss();
-                gameState = 'boss';
-                return;
+            if (gameState === 'characters') {
+                if (e.key === 'Escape') {
+                    gameState = 'menu';
+                    return;
+                }
+                if (e.key === '1') {
+                    setPlayerType('cube');
+                    return;
+                }
+                if (e.key === '2') {
+                    setPlayerType('redCube');
+                    return;
+                }
+                if (e.key === '3') {
+                    setPlayerType('yellowTriangle');
+                    return;
+                }
+                if (e.key === '4') {
+                    setPlayerType('greenRectangle');
+                    return;
+                }
+                if (e.key === '5') {
+                    setPlayerType('shadowCrystal');
+                    return;
+                }
+                if (e.key === '6') {
+                    setPlayerType('amberGyroid');
+                    return;
+                }
+                if (e.key === '7') {
+                    setPlayerType('hexagonizer');
+                    return;
+                }
             }
-            if (e.key === ' ' && canSpawnHealingItem && !gameOver && gameState !== 'menu' && gameState !== 'cheats' && gameState !== 'bossRush') {
-                spawnHealingItem();
-                canSpawnHealingItem = false;
+            if (gameState === 'bossRush') {
+                if (e.key === 'Escape') {
+                    gameState = 'menu';
+                    return;
+                }
+                if (e.key === '1') {
+                    spawnBoss();
+                    gameState = 'boss';
+                    return;
+                }
+                if (e.key === '2') {
+                    spawnAmberGyroid();
+                    gameState = 'boss';
+                    return;
+                }
+                if (e.key === '3') {
+                    spawnHexagonizer();
+                    gameState = 'boss';
+                    return;
+                }
+            }
+            if (e.key === ' ' && canSpawnHealingItem && !gameOver && gameState !== 'menu' && gameState !== 'cheats' && gameState !== 'characters' && gameState !== 'bossRush') {
+                if (player.type === 'amberGyroid' || player.type === 'hexagonizer') {
+                    firePlayerAttack();
+                } else {
+                    spawnHealingItem();
+                    canSpawnHealingItem = false;
+                }
+            }
+            if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown'].includes(e.key.toLowerCase()) && (player.type === 'greenRectangle' || player.type === 'shadowCrystal')) {
+                firePlayerAttack();
             }
             keys[e.key.toLowerCase()] = true;
         });
@@ -136,6 +241,134 @@
             keys[e.key.toLowerCase()] = false;
             if (e.key === ' ') canSpawnHealingItem = true;
         });
+
+        // Set player type
+        function setPlayerType(type) {
+            player.type = type;
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 30;
+            player.vx = 0;
+            player.vy = 0;
+            player.cooldown = 0;
+            if (type === 'cube') {
+                player.size = 30;
+                player.width = 30;
+                player.height = 30;
+                player.color = 'cyan';
+                player.health = 5;
+                player.maxHealth = 5;
+            } else if (type === 'redCube') {
+                player.size = 30;
+                player.width = 30;
+                player.height = 30;
+                player.color = 'red';
+                player.health = 1;
+                player.maxHealth = 1;
+            } else if (type === 'yellowTriangle') {
+                player.size = 50;
+                player.width = 50;
+                player.height = 50;
+                player.color = 'yellow';
+                player.health = 15;
+                player.maxHealth = 15;
+            } else if (type === 'greenRectangle') {
+                player.size = 30;
+                player.width = 30;
+                player.height = 60;
+                player.color = 'lime';
+                player.health = 2;
+                player.maxHealth = 2;
+                player.cooldown = 120;
+            } else if (type === 'shadowCrystal') {
+                player.size = 250;
+                player.width = 250;
+                player.height = 250;
+                player.color = 'purple';
+                player.health = 20;
+                player.maxHealth = 20;
+                player.cooldown = 90;
+            } else if (type === 'amberGyroid') {
+                player.size = 250;
+                player.width = 250;
+                player.height = 250;
+                player.color = 'orange';
+                player.health = 20;
+                player.maxHealth = 20;
+                player.cooldown = 180;
+                player.spiralAngle = 0;
+            } else if (type === 'hexagonizer') {
+                player.size = 200;
+                player.width = 200;
+                player.height = 200;
+                player.color = 'yellow';
+                player.health = 20;
+                player.maxHealth = 20;
+                player.cooldown = 90;
+                player.rotation = 0;
+            }
+        }
+
+        // Reset player position
+        function resetPlayer() {
+            player.x = canvas.width / 2;
+            player.y = canvas.height - player.size;
+            player.vx = 0;
+            player.vy = 0;
+            player.health = player.maxHealth;
+            player.cooldown = 0;
+            if (player.type === 'amberGyroid') player.spiralAngle = 0;
+            if (player.type === 'hexagonizer') player.rotation = 0;
+        }
+
+        // Fire player attack
+        function firePlayerAttack() {
+            if (player.cooldown > 0) return;
+            if (player.type === 'greenRectangle') {
+                const px = player.x + player.width / 2;
+                const py = player.y + player.height / 2;
+                let dx = 0, dy = 0;
+                if (keys['arrowleft']) dx -= 5;
+                if (keys['arrowright']) dx += 5;
+                if (keys['arrowup']) dy -= 5;
+                if (keys['arrowdown']) dy += 5;
+                const mag = Math.hypot(dx, dy);
+                if (mag > 0) {
+                    dx /= mag; dy /= mag;
+                    fireLaser(px, py, dx * 5, dy * 5);
+                    player.cooldown = 120;
+                }
+            } else if (player.type === 'shadowCrystal') {
+                const px = player.x + player.width / 2;
+                const py = player.y + player.height / 2;
+                let dx = 0, dy = 0;
+                if (keys['arrowleft']) dx -= 5;
+                if (keys['arrowright']) dx += 5;
+                if (keys['arrowup']) dy -= 5;
+                if (keys['arrowdown']) dy += 5;
+                const mag = Math.hypot(dx, dy);
+                if (mag > 0) {
+                    const angle = Math.atan2(dy, dx);
+                    const speed = 8;
+                    fireBossLaser(px, py, Math.cos(angle) * speed, Math.sin(angle) * speed);
+                    fireBossLaser(px, py, Math.cos(angle + Math.PI / 4) * speed, Math.sin(angle + Math.PI / 4) * speed);
+                    fireBossLaser(px, py, Math.cos(angle - Math.PI / 4) * speed, Math.sin(angle - Math.PI / 4) * speed);
+                    fireBossLaser(px, py, Math.cos(angle + Math.PI / 2) * speed, Math.sin(angle + Math.PI / 2) * speed);
+                    player.cooldown = 90;
+                }
+            } else if (player.type === 'amberGyroid') {
+                const px = player.x + player.width / 2;
+                const py = player.y + player.height / 2;
+                fireSpiralProjectiles(px, py, player.spiralAngle);
+                player.spiralAngle += Math.PI / 6;
+                if (player.spiralAngle >= Math.PI * 2) player.spiralAngle -= Math.PI * 2;
+                player.cooldown = 180;
+            } else if (player.type === 'hexagonizer') {
+                const px = player.x + player.width / 2;
+                const py = player.y + player.height / 2;
+                fireVertexBeams(player);
+                player.cooldown = 90;
+            }
+        }
 
         // ASCII art for main menu
         const titleArt = `
@@ -162,27 +395,21 @@ HHHHHHHHH     HHHHHHHHH     y:::::y            p::::::pppppppp        eeeeeeeeee
                        yyyyyyy                p:::::::p
                                               ppppppppp
 
-Developed by: GinkleJeff
-
+Developed By: GinkleJeff
             `.trim();
 
         // Spawn enemies helper function
         function spawnEnemies() {
-            // Preserve yellow enemies
             const yellowEnemies = enemies.filter(e => e.type === 'yellow');
             enemies.length = 0;
             enemies.push(...yellowEnemies);
 
-            // Red enemies (random spawn)
             for (let i = 0; i < 8; i++) {
-                enemies.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    width: 30, height: 30,
-                    type: 'red'
-                });
+                let e = { width: 30, height: 30, type: 'red' };
+                e.x = Math.random() * (canvas.width - e.width);
+                e.y = Math.random() * (canvas.height - e.height);
+                enemies.push(e);
             }
-            // Green enemies (wall/ground spawn)
             for (let i = 0; i < 5; i++) {
                 let side = Math.floor(Math.random() * 4),
                     e = { width: 30, height: 60, type: 'green', hp: 2, cooldown: Math.random() * 120, direction: 1 };
@@ -192,131 +419,306 @@ Developed by: GinkleJeff
                 else { e.x = Math.random() * canvas.width; e.y = canvas.height - e.height; e.axis = 'x'; }
                 enemies.push(e);
             }
-            // Yellow triangle enemies (wall/ground spawn, stationary)
             for (let i = 0; i < (yellowEnemies.length === 0 ? 3 : 2); i++) {
-                let side = Math.floor(Math.random() * 4),
-                    e = { width: 50, height: 50, type: 'yellow', hp: 1 };
-                if (side === 0) { e.x = Math.random() * canvas.width; e.y = 0; }
-                else if (side === 1) { e.x = 0; e.y = Math.random() * canvas.height; }
-                else if (side === 2) { e.x = canvas.width - e.width; e.y = Math.random() * canvas.height; }
-                else { e.x = Math.random() * canvas.width; e.y = canvas.height - e.height; }
+                let e = { width: 50, height: 50, type: 'yellow', hp: 1 };
+                e.x = Math.random() * (canvas.width - e.width);
+                e.y = Math.random() * (canvas.height - e.height);
                 enemies.push(e);
+            }
+            if (lameMode) {
+                for (let i = 0; i < 999; i++) {
+                    healingItems.push({
+                        x: Math.random() * (canvas.width - 30),
+                        y: Math.random() * (canvas.height - 30),
+                        size: 30,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        bounce: 0.8,
+                    });
+                }
+                console.log('Spawned 999 healing cubes');
             }
         }
 
-        // Spawn boss
+        // Spawn Shadow Crystal
         function spawnBoss() {
             gameState = 'boss';
-            boss = {
+            bosses = [{
                 x: canvas.width / 2 - 125,
                 y: canvas.height / 2 - 125,
                 width: 250,
                 height: 250,
-                type: 'boss',
+                type: 'shadowCrystal',
                 hp: 20,
                 cooldown: 90,
                 vx: 0,
                 vy: 0,
                 bounce: 0.7,
                 friction: 0.95
-            };
-            enemies.length = 0; // Clear all enemies
-            cube.x = canvas.width / 2; // Place cube at bottom center
-            cube.y = canvas.height - cube.size;
+            }];
+            enemies.length = 0;
+            resetPlayer();
             addScorePopup("BOSS: SHADOW CRYSTAL!", canvas.width / 2, canvas.height / 2);
-            console.log('Boss spawn, cube:', cube.x, cube.y, 'boss:', boss.x, boss.y);
+            shadowCrystalSpawned = true;
+            console.log('Boss spawn, player:', player.x, player.y, 'boss:', bosses[0].x, bosses[0].y);
         }
 
-        // Fire boss laser
+        // Spawn Amber Gyroid
+        function spawnAmberGyroid() {
+            gameState = 'boss';
+            bosses = [{
+                x: canvas.width / 2 - 125,
+                y: canvas.height / 2 - 125,
+                width: 250,
+                height: 250,
+                type: 'amberGyroid',
+                hp: 20,
+                cooldown: 60,
+                spiralAngle: 0,
+                vx: 0,
+                vy: 0,
+                bounce: 0.7,
+                friction: 0.95
+            }];
+            enemies.length = 0;
+            resetPlayer();
+            addScorePopup("BOSS: AMBER GYROID!", canvas.width / 2, canvas.height / 2);
+            amberGyroidSpawned = true;
+            console.log('Amber Gyroid spawn, player:', player.x, player.y, 'boss:', bosses[0].x, bosses[0].y);
+        }
+
+        // Spawn Hexagonizer
+        function spawnHexagonizer() {
+            gameState = 'boss';
+            bosses = [{
+                x: canvas.width / 2 - 100,
+                y: canvas.height / 2 - 100,
+                width: 200,
+                height: 200,
+                type: 'hexagonizer',
+                hp: 20,
+                cooldownHexPulse: 120,
+                cooldownVertexBeam: 90,
+                rotation: 0,
+                vx: 0,
+                vy: 0,
+                bounce: 0.7,
+                friction: 0.95
+            }];
+            enemies.length = 0;
+            resetPlayer();
+            addScorePopup("BOSS: HEXAGONIZER!", canvas.width / 2, canvas.height / 2);
+            hexagonizerSpawned = true;
+            console.log('Hexagonizer spawn, player:', player.x, player.y, 'boss:', bosses[0].x, bosses[0].y);
+        }
+
+        // Fire boss laser (Shadow Crystal)
         function fireBossLaser(x, y, dx, dy) {
-            lasers.push({ x, y, dx, dy, size: 20, color: 'pink', isBossLaser: true });
+            lasers.push({ x, y, dx, dy, size: 20, color: 'pink', isBossLaser: true, isPlayerLaser: player.type === 'shadowCrystal' });
             laserAfterimages.push({ x, y, size: 20, opacity: 0.5, life: 12, color: 'pink' });
         }
 
-        // Update boss
-        function updateBoss() {
-            if (!boss) return;
-            // Move toward player
-            let dx = (cube.x + cube.size / 2) - (boss.x + boss.width / 2);
-            let dy = (cube.y + cube.size / 2) - (boss.y + boss.height / 2);
-            let mag = Math.hypot(dx, dy);
-            if (mag > 0) {
-                dx /= mag;
-                dy /= mag;
+        // Fire Amber Gyroid spiral projectiles
+        function fireSpiralProjectiles(cx, cy, startAngle) {
+            const numShots = 12;
+            const angleStep = Math.PI * 2 / numShots;
+            const speed = 10;
+            for (let i = 0; i < numShots; i++) {
+                const angle = startAngle + i * angleStep;
+                lasers.push({
+                    x: cx,
+                    y: cy,
+                    dx: Math.cos(angle) * speed,
+                    dy: Math.sin(angle) * speed,
+                    size: 40,
+                    color: 'orange',
+                    isBossLaser: true,
+                    isPlayerLaser: player.type === 'amberGyroid'
+                });
+                laserAfterimages.push({
+                    x: cx,
+                    y: cy,
+                    size: 40,
+                    opacity: 0.5,
+                    life: 12,
+                    color: 'orange'
+                });
             }
-            let chaseSpeed = 0.5;
-            boss.x += dx * chaseSpeed;
-            boss.y += dy * chaseSpeed;
+        }
 
-            // Apply velocity from collisions
-            boss.x += boss.vx;
-            boss.y += boss.vy;
-
-            // Bounce off walls
-            if (boss.x < 0) { boss.x = 0; boss.vx = Math.abs(boss.vx) * boss.bounce; }
-            if (boss.x + boss.width > canvas.width) {
-                boss.x = canvas.width - boss.width;
-                boss.vx = -Math.abs(boss.vx) * boss.bounce;
+        // Fire Hexagonizer vertex beams
+        function fireVertexBeams(boss) {
+            const cx = boss.x + boss.width / 2;
+            const cy = boss.y + boss.height / 2;
+            const speed = 8;
+            for (let i = 0; i < 6; i++) {
+                const angle = boss.rotation + i * Math.PI / 3;
+                lasers.push({
+                    x: cx,
+                    y: cy,
+                    dx: Math.cos(angle) * speed,
+                    dy: Math.sin(angle) * speed,
+                    size: 40,
+                    color: 'lime',
+                    outlineColor: 'darkgreen',
+                    isBossLaser: true,
+                    isPlayerLaser: boss.type === 'hexagonizer' && player.type === 'hexagonizer'
+                });
+                laserAfterimages.push({
+                    x: cx,
+                    y: cy,
+                    size: 40,
+                    opacity: 0.5,
+                    life: 12,
+                    color: 'lime',
+                    outlineColor: 'darkgreen'
+                });
             }
-            if (boss.y < 0) { boss.y = 0; boss.vy = Math.abs(boss.vy) * boss.bounce; }
-            if (boss.y + boss.height > canvas.height) {
-                boss.y = canvas.height - boss.height;
-                boss.vy = -Math.abs(boss.vy) * boss.bounce;
-            }
+        }
 
-            // Apply friction to boss velocity
-            boss.vx *= boss.friction;
-            boss.vy *= boss.friction;
+        // Fire laser
+        function fireLaser(x, y, dx, dy) {
+            lasers.push({ x, y, dx, dy, size: 5, color: 'red', isPlayerLaser: player.type === 'greenRectangle' });
+            laserAfterimages.push({ x, y, size: 5, opacity: 0.5, life: 12, color: 'red' });
+        }
 
-            // Fire lasers aimed at player
-            boss.cooldown--;
-            if (boss.cooldown <= 0) {
-                const cx = boss.x + boss.width / 2;
-                const cy = boss.y + boss.height / 2;
-                const px = cube.x + cube.size / 2;
-                const py = cube.y + cube.size / 2;
-                const dx = (px - cx);
-                const dy = (py - cy);
-                const mag = Math.hypot(dx, dy);
-                const speed = 8;
+        // Update bosses
+        function updateBosses() {
+            for (let boss of bosses) {
+                let dx = (player.x + player.width / 2) - (boss.x + boss.width / 2);
+                let dy = (player.y + player.height / 2) - (boss.y + boss.height / 2);
+                let mag = Math.hypot(dx, dy);
                 if (mag > 0) {
-                    // Fire 4 lasers in a spread around player's direction
-                    const angle = Math.atan2(dy, dx);
-                    fireBossLaser(cx, cy, Math.cos(angle) * speed, Math.sin(angle) * speed);
-                    fireBossLaser(cx, cy, Math.cos(angle + Math.PI / 4) * speed, Math.sin(angle + Math.PI / 4) * speed);
-                    fireBossLaser(cx, cy, Math.cos(angle - Math.PI / 4) * speed, Math.sin(angle - Math.PI / 4) * speed);
-                    fireBossLaser(cx, cy, Math.cos(angle + Math.PI / 2) * speed, Math.sin(angle + Math.PI / 2) * speed);
+                    dx /= mag;
+                    dy /= mag;
                 }
-                boss.cooldown = 90;
+                let chaseSpeed = boss.type === 'hexagonizer' ? 0.7 : 0.5;
+                boss.x += dx * chaseSpeed;
+                boss.y += dy * chaseSpeed;
+
+                boss.x += boss.vx;
+                boss.y += boss.vy;
+
+                if (boss.x < 0) { boss.x = 0; boss.vx = Math.abs(boss.vx) * boss.bounce; }
+                if (boss.x + boss.width > canvas.width) {
+                    boss.x = canvas.width - boss.width;
+                    boss.vx = -Math.abs(boss.vx) * boss.bounce;
+                }
+                if (boss.y < 0) { boss.y = 0; boss.vy = Math.abs(boss.vy) * boss.bounce; }
+                if (boss.y + boss.height > canvas.height) {
+                    boss.y = canvas.height - boss.height;
+                    boss.vy = -Math.abs(boss.vy) * boss.bounce;
+                }
+
+                boss.vx *= boss.friction;
+                boss.vy *= boss.friction;
+
+                if (boss.type === 'hexagonizer') {
+                    boss.rotation = (boss.rotation + 0.02) % (Math.PI * 2);
+                    boss.cooldownHexPulse--;
+                    boss.cooldownVertexBeam--;
+
+                    if (boss.cooldownHexPulse <= 0) {
+                        boss.isPulsing = true;
+                        boss.pulseTimer = boss.pulseTimer ? boss.pulseTimer + 1 : 1;
+                        if (boss.pulseTimer <= 15) {
+                            boss.pulseSize = boss.width + 50 * (boss.pulseTimer / 15);
+                        } else if (boss.pulseTimer <= 30) {
+                            boss.pulseSize = boss.width + 50 * (1 - (boss.pulseTimer - 15) / 15);
+                        } else {
+                            boss.isPulsing = false;
+                            boss.pulseTimer = 0;
+                            boss.pulseSize = boss.width;
+                            boss.cooldownHexPulse = 120;
+                        }
+                    }
+                    if (boss.cooldownVertexBeam <= 0) {
+                        fireVertexBeams(boss);
+                        boss.cooldownVertexBeam = 90;
+                    }
+                } else if (boss.type === 'shadowCrystal') {
+                    boss.cooldown--;
+                    if (boss.cooldown <= 0) {
+                        const cx = boss.x + boss.width / 2;
+                        const cy = boss.y + boss.height / 2;
+                        const px = player.x + player.width / 2;
+                        const py = player.y + player.height / 2;
+                        const dx = (px - cx);
+                        const dy = (py - cy);
+                        const mag = Math.hypot(dx, dy);
+                        const speed = 8;
+                        if (mag > 0) {
+                            const angle = Math.atan2(dy, dx);
+                            fireBossLaser(cx, cy, Math.cos(angle) * speed, Math.sin(angle) * speed);
+                            fireBossLaser(cx, cy, Math.cos(angle + Math.PI / 4) * speed, Math.sin(angle + Math.PI / 4) * speed);
+                            fireBossLaser(cx, cy, Math.cos(angle - Math.PI / 4) * speed, Math.sin(angle - Math.PI / 4) * speed);
+                            fireBossLaser(cx, cy, Math.cos(angle + Math.PI / 2) * speed, Math.sin(angle + Math.PI / 2) * speed);
+                        }
+                        boss.cooldown = 90;
+                    }
+                } else if (boss.type === 'amberGyroid') {
+                    boss.cooldown--;
+                    if (boss.cooldown <= 0) {
+                        const cx = boss.x + boss.width / 2;
+                        const cy = boss.y + boss.height / 2;
+                        fireSpiralProjectiles(cx, cy, boss.spiralAngle);
+                        boss.spiralAngle += Math.PI / 6;
+                        if (boss.spiralAngle >= Math.PI * 2) boss.spiralAngle -= Math.PI * 2;
+                        boss.cooldown = 180;
+                    }
+                }
             }
         }
 
-        // Draw boss
-        function drawBoss() {
-            if (!boss) return;
-            ctx.fillStyle = 'purple';
-            ctx.beginPath();
-            ctx.moveTo(boss.x + boss.width / 2, boss.y); // Top
-            ctx.lineTo(boss.x + boss.width, boss.y + boss.height / 2); // Right
-            ctx.lineTo(boss.x + boss.width / 2, boss.y + boss.height); // Bottom
-            ctx.lineTo(boss.x, boss.y + boss.height / 2); // Left
-            ctx.closePath();
-            ctx.fill();
-            // Draw boss HP
-            ctx.fillStyle = 'purple';
-            ctx.font = '24px monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText(`HP: ${boss.hp}`, boss.x + boss.width / 2, boss.y + boss.height + 30);
-            ctx.textAlign = 'left';
+        // Draw bosses
+        function drawBosses() {
+            for (let boss of bosses) {
+                if (boss.type === 'shadowCrystal') {
+                    ctx.fillStyle = 'purple';
+                    ctx.beginPath();
+                    ctx.moveTo(boss.x + boss.width / 2, boss.y);
+                    ctx.lineTo(boss.x + boss.width, boss.y + boss.height / 2);
+                    ctx.lineTo(boss.x + boss.width / 2, boss.y + boss.height);
+                    ctx.lineTo(boss.x, boss.y + boss.height / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (boss.type === 'amberGyroid') {
+                    ctx.fillStyle = 'orange';
+                    ctx.beginPath();
+                    ctx.arc(boss.x + boss.width / 2, boss.y + boss.height / 2, boss.width / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (boss.type === 'hexagonizer') {
+                    ctx.save();
+                    ctx.translate(boss.x + boss.width / 2, boss.y + boss.height / 2);
+                    ctx.rotate(boss.rotation);
+                    ctx.strokeStyle = 'yellow';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    for (let i = 0; i < 6; i++) {
+                        const angle = i * Math.PI / 3;
+                        const x = (boss.pulseSize || boss.width) / 2 * Math.cos(angle);
+                        const y = (boss.pulseSize || boss.width) / 2 * Math.sin(angle);
+                        ctx[i === 0 ? 'moveTo' : 'lineTo'](x, y);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                ctx.fillStyle = boss.type === 'shadowCrystal' ? 'purple' : boss.type === 'amberGyroid' ? 'orange' : 'yellow';
+                ctx.font = '24px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(`HP: ${boss.hp}`, boss.x + boss.width / 2, boss.y + boss.height + 30);
+                ctx.textAlign = 'left';
+            }
         }
 
-        // Check if point is inside rhombus
+        // Check if point is inside rhombus (Shadow Crystal)
         function pointInRhombus(px, py, boss) {
             const vertices = [
-                { x: boss.x + boss.width / 2, y: boss.y }, // Top
-                { x: boss.x + boss.width, y: boss.y + boss.height / 2 }, // Right
-                { x: boss.x + boss.width / 2, y: boss.y + boss.height }, // Bottom
-                { x: boss.x, y: boss.y + boss.height / 2 } // Left
+                { x: boss.x + boss.width / 2, y: boss.y },
+                { x: boss.x + boss.width, y: boss.y + boss.height / 2 },
+                { x: boss.x + boss.width / 2, y: boss.y + boss.height },
+                { x: boss.x, y: boss.y + boss.height / 2 }
             ];
             let inside = false;
             for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
@@ -330,12 +732,44 @@ Developed by: GinkleJeff
             return inside;
         }
 
-        // fire a laser
-        function fireLaser(x, y, dx, dy) {
-            lasers.push({ x, y, dx, dy, size: 5 });
+        // Check if point is inside circle (Amber Gyroid)
+        function pointInCircle(px, py, boss) {
+            const centerX = boss.x + boss.width / 2;
+            const centerY = boss.y + boss.height / 2;
+            const radius = boss.width / 2;
+            const dx = px - centerX;
+            const dy = py - centerY;
+            return Math.hypot(dx, dy) <= radius;
         }
 
-        // spawn explosion particles
+        // Check if point is inside hexagon (Hexagonizer)
+        function pointInHexagon(px, py, boss) {
+            ctx.save();
+            ctx.translate(boss.x + boss.width / 2, boss.y + boss.height / 2);
+            ctx.rotate(boss.rotation || 0);
+            const vertices = [];
+            for (let i = 0; i < 6; i++) {
+                const angle = i * Math.PI / 3;
+                vertices.push({
+                    x: (boss.pulseSize || boss.width) / 2 * Math.cos(angle),
+                    y: (boss.pulseSize || boss.width) / 2 * Math.sin(angle)
+                });
+            }
+            ctx.restore();
+            let inside = false;
+            for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+                if (
+                    ((vertices[i].y + boss.y + boss.height / 2 > py) !== (vertices[j].y + boss.y + boss.height / 2 > py)) &&
+                    (px < (vertices[j].x - vertices[i].x) * (py - (vertices[i].y + boss.y + boss.height / 2)) /
+                        (vertices[j].y - vertices[i].y) + vertices[i].x + boss.x + boss.width / 2)
+                ) {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        }
+
+        // Spawn explosion particles
         function spawnParticles(x, y, color, count = 40) {
             for (let i = 0; i < count; i++) {
                 particles.push({
@@ -350,7 +784,25 @@ Developed by: GinkleJeff
             }
         }
 
-        // spawn healing item
+        // Spawn triangle particles for Hexagonizer defeat
+        function spawnTriangleParticles(x, y) {
+            for (let i = 0; i < 50; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * 5,
+                    vy: Math.sin(angle) * 5,
+                    size: Math.random() * 10 + 5,
+                    color: 'yellow',
+                    life: 40,
+                    opacity: 1,
+                    isTriangle: true,
+                    rotation: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        // Spawn healing item
         function spawnHealingItem() {
             if (gameOver) return;
             if (score >= 10000 && healingItems.length === 0) {
@@ -364,36 +816,19 @@ Developed by: GinkleJeff
                     bounce: 0.8,
                 });
             } else if (score < 10000) {
-                addScorePopup("Need 10000 points!", cube.x, cube.y - 20);
+                addScorePopup("Need 10000 points!", player.x, player.y - 20);
             }
         }
 
-        // take damage
-        function takeDamage() {
-            if (gameOver || godMode) return;
-            cube.health--;
-            spawnParticles(cube.x + cube.size / 2, cube.y + cube.size / 2, 'red', 50);
-            combo = 0;
-            comboTimer = 0;
-
-            if (cube.health <= 0) {
-                gameOver = true;
-                deathScreen.style.display = 'block';
-                setTimeout(() => {
-                    if (confirm('Reload the game?')) location.reload();
-                }, 1500);
-            }
-        }
-
-        // heal player
+        // Heal player
         function healPlayer() {
-            cube.health = 5;
-            spawnParticles(cube.x + cube.size / 2, cube.y + cube.size / 2, 'lime', 60);
-            addScorePopup("Healed!", cube.x, cube.y - 20);
+            player.health = player.maxHealth;
+            spawnParticles(player.x + player.width / 2, player.y + player.height / 2, 'lime', 60);
+            addScorePopup("Healed!", player.x, player.y - 20);
             console.log('Healing collision');
         }
 
-        // add score popup text
+        // Add score popup text
         function addScorePopup(text, x, y) {
             scorePopups.push({
                 text,
@@ -404,12 +839,50 @@ Developed by: GinkleJeff
             });
         }
 
+        // Take damage
+        function takeDamage() {
+            if (gameOver || godMode) return;
+            player.health--;
+            spawnParticles(player.x + player.width / 2, player.y + player.height / 2, 'red', 50);
+            combo = 0;
+            comboTimer = 0;
+
+            if (player.health <= 0) {
+                gameOver = true;
+                deathScreen.style.display = 'block';
+                setTimeout(() => {
+                    gameState = 'menu';
+                    gameOver = false;
+                    deathScreen.style.display = 'none';
+                    score = 0;
+                    waveCount = 0;
+                    shadowCrystalSpawned = false;
+                    amberGyroidSpawned = false;
+                    hexagonizerSpawned = false;
+                    enemies.length = 0;
+                    bosses.length = 0;
+                    lasers.length = 0;
+                    particles.length = 0;
+                    cubeAfterimages.length = 0;
+                    laserAfterimages.length = 0;
+                    scorePopups.length = 0;
+                    healingItems.length = 0;
+                    setPlayerType('cube');
+                }, 1500);
+            }
+        }
+
         // Check if wave is cleared (exclude yellow enemies)
         function checkWave() {
             if (!gameOver && gameState === 'playing' && enemies.every(e => e.type === 'yellow')) {
                 waveCount++;
-                if (waveCount >= 10) {
+                console.log('Wave:', waveCount, 'SC:', shadowCrystalSpawned, 'AG:', amberGyroidSpawned, 'Hex:', hexagonizerSpawned);
+                if (waveCount >= 10 && !shadowCrystalSpawned) {
                     spawnBoss();
+                } else if (waveCount >= 20 && shadowCrystalSpawned && !amberGyroidSpawned) {
+                    spawnAmberGyroid();
+                } else if (waveCount >= 30 && shadowCrystalSpawned && amberGyroidSpawned && !hexagonizerSpawned) {
+                    spawnHexagonizer();
                 } else {
                     spawnEnemies();
                 }
@@ -417,54 +890,62 @@ Developed by: GinkleJeff
         }
 
         function update() {
-            gameOverTimer++; // Increment timer always
+            gameOverTimer++;
 
-            if (gameState === 'menu' || gameState === 'cheats' || gameState === 'bossRush' || gameOver) {
+            if (gameState === 'menu' || gameState === 'cheats' || gameState === 'characters' || gameState === 'bossRush' || gameOver) {
                 return;
             }
 
-            // Debug: reduce health for testing
             if (keys['h']) {
                 takeDamage();
                 keys['h'] = false;
             }
 
-            // movement
-            if (keys['arrowleft'] || keys['a']) cube.vx -= cube.speed;
-            if (keys['arrowright'] || keys['d']) cube.vx += cube.speed;
-            if (keys['arrowup'] || keys['w']) cube.vy -= cube.speed;
-            if (keys['arrowdown'] || keys['s']) cube.vy += cube.speed;
+            // Movement with WASD and arrow keys for Cyan Cube and Red Cube
+            if (keys['a'] || (player.type === 'cube' || player.type === 'redCube') && keys['arrowleft']) player.vx -= player.speed;
+            if (keys['d'] || (player.type === 'cube' || player.type === 'redCube') && keys['arrowright']) player.vx += player.speed;
+            if (keys['w'] || (player.type === 'cube' || player.type === 'redCube') && keys['arrowup']) player.vy -= player.speed;
+            if (keys['s'] || (player.type === 'cube' || player.type === 'redCube') && keys['arrowdown']) player.vy += player.speed;
 
-            cube.x += cube.vx;
-            cube.y += cube.vy;
-
-            // bounce off walls
-            if (cube.x < 0) { cube.x = 0; cube.vx = Math.abs(cube.vx) * cube.bounce; }
-            if (cube.x + cube.size > canvas.width) {
-                cube.x = canvas.width - cube.size;
-                cube.vx = -Math.abs(cube.vx) * cube.bounce;
-            }
-            if (cube.y < 0) { cube.y = 0; cube.vy = Math.abs(cube.vy) * cube.bounce; }
-            if (cube.y + cube.size > canvas.height) {
-                cube.y = canvas.height - cube.size;
-                cube.vy = -Math.abs(cube.vy) * cube.bounce;
+            // Movement for other characters (WASD only)
+            if (player.type !== 'cube' && player.type !== 'redCube') {
+                if (keys['a']) player.vx -= player.speed;
+                if (keys['d']) player.vx += player.speed;
+                if (keys['w']) player.vy -= player.speed;
+                if (keys['s']) player.vy += player.speed;
             }
 
-            // friction
-            cube.vx *= cube.friction;
-            cube.vy *= cube.friction;
+            player.x += player.vx;
+            player.y += player.vy;
 
-            // afterimages
-            cubeAfterimages.push({ x: cube.x, y: cube.y, size: cube.size, opacity: 0.5, life: 10 });
+            if (player.x < 0) { player.x = 0; player.vx = Math.abs(player.vx) * player.bounce; }
+            if (player.x + player.width > canvas.width) {
+                player.x = canvas.width - player.width;
+                player.vx = -Math.abs(player.vx) * player.bounce;
+            }
+            if (player.y < 0) { player.y = 0; player.vy = Math.abs(player.vy) * player.bounce; }
+            if (player.y + player.height > canvas.height) {
+                player.y = canvas.height - player.height;
+                player.vy = -Math.abs(player.vy) * player.bounce;
+            }
+
+            player.vx *= player.friction;
+            player.vy *= player.friction;
+
+            if (player.type === 'hexagonizer') {
+                player.rotation = (player.rotation + 0.02) % (Math.PI * 2);
+            }
+
+            if (player.cooldown > 0) player.cooldown--;
+
+            cubeAfterimages.push({ x: player.x, y: player.y, width: player.width, height: player.height, type: player.type, rotation: player.rotation, opacity: 0.5, life: 10 });
             if (cubeAfterimages.length > 20) cubeAfterimages.shift();
 
-            // update healing items
             for (let i = healingItems.length - 1; i >= 0; i--) {
                 let h = healingItems[i];
                 h.x += h.vx;
                 h.y += h.vy;
 
-                // bounce off walls
                 if (h.x < 0) { h.x = 0; h.vx = Math.abs(h.vx) * h.bounce; }
                 if (h.x + h.size > canvas.width) {
                     h.x = canvas.width - h.size;
@@ -476,15 +957,13 @@ Developed by: GinkleJeff
                     h.vy = -Math.abs(h.vy) * h.bounce;
                 }
 
-                // check collision with player
-                if (cube.x < h.x + h.size && cube.x + cube.size > h.x &&
-                    cube.y < h.y + h.size && cube.y + cube.size > h.y) {
+                if (player.x < h.x + h.size && player.x + player.width > h.x &&
+                    player.y < h.y + h.size && player.y + player.height > h.y) {
                     healPlayer();
                     healingItems.splice(i, 1);
                 }
             }
 
-            // ENEMY BEHAVIOR LOOP
             for (let e of enemies) {
                 if (e.type === 'green') {
                     if (e.axis === 'x') {
@@ -496,15 +975,15 @@ Developed by: GinkleJeff
                     }
                     e.cooldown--;
                     if (e.cooldown <= 0) {
-                        let dx = (cube.x + cube.size / 2) - (e.x + e.width / 2),
-                            dy = (cube.y + cube.size / 2) - (e.y + e.height / 2),
+                        let dx = (player.x + player.width / 2) - (e.x + e.width / 2),
+                            dy = (player.y + player.height / 2) - (e.y + e.height / 2),
                             mag = Math.hypot(dx, dy);
                         fireLaser(e.x + e.width / 2, e.y + e.height / 2, (dx / mag) * 5, (dy / mag) * 5);
                         e.cooldown = 120;
                     }
                 } else if (e.type === 'red') {
-                    let dx = (cube.x + cube.size / 2) - (e.x + e.width / 2);
-                    let dy = (cube.y + cube.size / 2) - (e.y + e.height / 2);
+                    let dx = (player.x + player.width / 2) - (e.x + e.width / 2);
+                    let dy = (player.y + player.height / 2) - (e.y + e.height / 2);
                     let mag = Math.hypot(dx, dy);
                     if (mag > 0) {
                         dx /= mag;
@@ -514,17 +993,15 @@ Developed by: GinkleJeff
                     e.x += dx * chaseSpeed;
                     e.y += dy * chaseSpeed;
                 }
-                // Yellow enemies are stationary, no movement
             }
 
-            // enemy collision & scoring
             let isCollidingYellow = false;
             for (let i = enemies.length - 1; i >= 0; i--) {
                 let e = enemies[i];
-                if (cube.x < e.x + e.width && cube.x + cube.size > e.x &&
-                    cube.y < e.y + e.height && cube.y + cube.size > e.y) {
+                if (player.x < e.x + e.width && player.x + player.width > e.x &&
+                    player.y < e.y + e.height && player.y + player.height > e.y) {
                     let basePoints = e.type === 'red' ? 100 : e.type === 'yellow' ? 150 : 200;
-                    let pointsEarned = basePoints * Math.pow(2, combo);
+                    let pointsEarned = basePoints * 2 * combo;
                     console.log('Enemy hit:', e.type, 'Points:', pointsEarned);
 
                     if (e.type === 'red') {
@@ -564,67 +1041,86 @@ Developed by: GinkleJeff
                 }
             }
 
-            // Boss collision
-            if (boss && cube.x < boss.x + boss.width && cube.x + cube.size > boss.x &&
-                cube.y < boss.y + boss.height && cube.y + cube.size > boss.y) {
-                // Check if cube center is inside rhombus
-                const cubeCenterX = cube.x + cube.size / 2;
-                const cubeCenterY = cube.y + cube.size / 2;
-                if (pointInRhombus(cubeCenterX, cubeCenterY, boss) && gameOverTimer - lastBossHit >= bossHitCooldown) {
-                    console.log('Boss collision, cube:', cube.x, cube.y, 'boss:', boss.x, boss.y, 'frame:', gameOverTimer);
-                    // Apply knockback to boss
-                    let dx = (boss.x + boss.width / 2) - (cube.x + cube.size / 2);
-                    let dy = (boss.y + boss.height / 2) - (cube.y + cube.size / 2);
-                    let mag = Math.hypot(dx, dy);
-                    if (mag > 0) {
-                        dx /= mag;
-                        dy /= mag;
+            for (let i = bosses.length - 1; i >= 0; i--) {
+                let boss = bosses[i];
+                if (player.x < boss.x + boss.width && player.x + player.width > boss.x &&
+                    player.y < boss.y + boss.height && player.y + player.height > boss.y) {
+                    const playerCenterX = player.x + player.width / 2;
+                    const playerCenterY = player.y + player.height / 2;
+                    let isInside = false;
+                    if (boss.type === 'shadowCrystal') {
+                        isInside = pointInRhombus(playerCenterX, playerCenterY, boss);
+                    } else if (boss.type === 'amberGyroid') {
+                        isInside = pointInCircle(playerCenterX, playerCenterY, boss);
+                    } else if (boss.type === 'hexagonizer') {
+                        isInside = pointInHexagon(playerCenterX, playerCenterY, boss);
                     }
-                    boss.vx = dx * 20; // Strong knockback for boss
-                    boss.vy = dy * 20;
-                    boss.x += boss.vx; // Move boss immediately
-                    boss.y += boss.vy;
+                    if (isInside && gameOverTimer - lastBossHit >= bossHitCooldown) {
+                        console.log('Boss collision, player:', player.x, player.y, 'boss:', boss.x, boss.y, 'frame:', gameOverTimer);
+                        let dx = (boss.x + boss.width / 2) - (player.x + player.width / 2);
+                        let dy = (boss.y + boss.height / 2) - (player.y + player.height / 2);
+                        let mag = Math.hypot(dx, dy);
+                        if (mag > 0) {
+                            dx /= mag;
+                            dy /= mag;
+                        }
+                        boss.vx = dx * 20;
+                        boss.vy = dy * 20;
+                        boss.x += boss.vx;
+                        boss.y += boss.vy;
 
-                    // Push cube out of boss hitbox
-                    const overlapX = Math.min(cube.x + cube.size - boss.x, boss.x + boss.width - cube.x);
-                    const overlapY = Math.min(cube.y + cube.size - boss.y, boss.y + boss.height - cube.y);
-                    if (overlapX < overlapY) {
-                        if (cube.x < boss.x + boss.width / 2) cube.x = boss.x - cube.size;
-                        else cube.x = boss.x + boss.width;
-                    } else {
-                        if (cube.y < boss.y + boss.height / 2) cube.y = boss.y - cube.size;
-                        else cube.y = boss.y + boss.height;
-                    }
+                        const overlapX = Math.min(player.x + player.width - boss.x, boss.x + boss.width - player.x);
+                        const overlapY = Math.min(player.y + player.height - boss.y, boss.y + boss.height - player.y);
+                        if (overlapX < overlapY) {
+                            if (player.x < boss.x + boss.width / 2) player.x = boss.x - player.width;
+                            else player.x = boss.x + boss.width;
+                        } else {
+                            if (player.y < boss.y + boss.height / 2) player.y = boss.y - player.height;
+                            else player.y = boss.y + boss.height;
+                        }
 
-                    // Damage boss
-                    boss.hp--;
-                    score += 1000;
-                    spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'purple', 20);
-                    addScorePopup("Boss Hit! +1000", boss.x + boss.width / 2, boss.y);
-                    lastBossHit = gameOverTimer;
-                    console.log('Boss hit, HP:', boss.hp, 'boss vx:', boss.vx, 'vy:', boss.vy);
+                        const damage = oneHitBoss ? boss.hp : 1;
+                        boss.hp -= damage;
+                        score += 1000;
+                        spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, boss.type === 'shadowCrystal' ? 'purple' : boss.type === 'amberGyroid' ? 'orange' : 'yellow', 20);
+                        addScorePopup(`Boss Hit! +1000`, boss.x + boss.width / 2, boss.y);
+                        lastBossHit = gameOverTimer;
+                        console.log('Boss hit, HP:', boss.hp, 'boss vx:', boss.vx, 'vy:', boss.vy);
 
-                    if (boss.hp <= 0) {
-                        spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'red', 100);
-                        spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'pink', 100);
-                        spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'yellow', 100);
-                        score += 10000;
-                        addScorePopup("BOSS DEFEATED! +10000", canvas.width / 2, canvas.height / 2);
-                        boss = null;
-                        gameState = 'playing';
-                        waveCount = 0;
-                        spawnEnemies();
-                        console.log('Boss died');
+                        if (boss.hp <= 0) {
+                            if (boss.type === 'hexagonizer') {
+                                spawnTriangleParticles(boss.x + boss.width / 2, boss.y + boss.height / 2);
+                                spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'red', 100);
+                                spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'yellow', 100);
+                                spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'cyan', 100);
+                            } else {
+                                spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'red', 100);
+                                spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'pink', 100);
+                                spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 'yellow', 100);
+                            }
+                            score += 10000;
+                            addScorePopup(`BOSS DEFEATED! +10000`, canvas.width / 2, canvas.height / 2);
+                            bosses.splice(i, 1);
+                            console.log('Boss died');
+                            if (bosses.length === 0) {
+                                gameState = 'playing';
+                                spawnEnemies();
+                            }
+                        }
+                    } else if (boss.type === 'hexagonizer' && boss.isPulsing && boss.pulseTimer > 15 && gameOverTimer - lastYellowDamageTime >= 600) {
+                        if (player.x < boss.x + boss.pulseSize && player.x + player.width > boss.x &&
+                            player.y < boss.y + boss.pulseSize && player.y + player.height > boss.y) {
+                            takeDamage();
+                            lastYellowDamageTime = gameOverTimer;
+                        }
                     }
                 }
             }
 
-            // Reset yellow damage timer if not colliding
             if (!isCollidingYellow) {
                 lastYellowDamageTime = -600;
             }
 
-            // lasers update & collision
             for (let i = lasers.length - 1; i >= 0; i--) {
                 let l = lasers[i];
                 laserAfterimages.push({
@@ -633,7 +1129,8 @@ Developed by: GinkleJeff
                     size: l.size,
                     opacity: 0.5,
                     life: 12,
-                    color: l.isBossLaser ? 'pink' : 'red'
+                    color: l.color || (l.isBossLaser ? 'pink' : 'red'),
+                    outlineColor: l.outlineColor
                 });
                 if (laserAfterimages.length > 50) laserAfterimages.shift();
 
@@ -641,28 +1138,26 @@ Developed by: GinkleJeff
                 if (l.x < 0 || l.x > canvas.width || l.y < 0 || l.y > canvas.height) {
                     lasers.splice(i, 1); continue;
                 }
-                if (!godMode && l.x < cube.x + cube.size && l.x + l.size > cube.x &&
-                    l.y < cube.y + cube.size && l.y + l.size > cube.y) {
+                if (!godMode && !l.isPlayerLaser && l.x < player.x + player.width && l.x + l.size > player.x &&
+                    l.y < player.y + player.height && l.y + l.size > player.y) {
                     takeDamage();
                     lasers.splice(i, 1);
                 }
             }
 
-            // combo timeout
             if (comboTimer > 0) comboTimer--;
             else combo = 0;
 
-            // particles update
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
                 p.x += p.vx;
                 p.y += p.vy;
                 p.life--;
-                p.opacity = p.life / 50;
+                p.opacity = p.life / (p.isTriangle ? 40 : 50);
+                if (p.isTriangle) p.rotation += 0.05;
                 if (p.life <= 0) particles.splice(i, 1);
             }
 
-            // afterimages update
             for (let i = cubeAfterimages.length - 1; i >= 0; i--) {
                 let a = cubeAfterimages[i];
                 a.life--;
@@ -677,7 +1172,6 @@ Developed by: GinkleJeff
                 if (a.life <= 0) laserAfterimages.splice(i, 1);
             }
 
-            // score bump animation
             if (scoreBumpTimer > 0) {
                 scoreBumpTimer--;
                 scoreScale = 1 + 0.5 * (scoreBumpTimer / 10);
@@ -685,7 +1179,6 @@ Developed by: GinkleJeff
                 scoreScale = 1;
             }
 
-            // score popup text update
             for (let i = scorePopups.length - 1; i >= 0; i--) {
                 let sp = scorePopups[i];
                 sp.y += sp.vy;
@@ -693,10 +1186,8 @@ Developed by: GinkleJeff
                 if (sp.life <= 0) scorePopups.splice(i, 1);
             }
 
-            // Update boss
-            updateBoss();
+            updateBosses();
 
-            // check wave completion
             checkWave();
         }
 
@@ -704,7 +1195,6 @@ Developed by: GinkleJeff
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (gameState === 'menu') {
-                // Draw main menu
                 ctx.fillStyle = 'cyan';
                 ctx.font = '16px monospace';
                 ctx.textAlign = 'left';
@@ -718,57 +1208,175 @@ Developed by: GinkleJeff
                 ctx.font = '24px monospace';
                 ctx.textAlign = 'center';
                 ctx.fillText('Press Enter to Start', canvas.width / 2, startY + lines.length * lineHeight + 40);
-                ctx.fillText('Press Z for Cheat Menu', canvas.width / 2, startY + lines.length * lineHeight + 80);
+                ctx.fillText('Press ~ for Cheat Menu', canvas.width / 2, startY + lines.length * lineHeight + 80);
                 ctx.fillText('Press B for Boss Rush', canvas.width / 2, startY + lines.length * lineHeight + 120);
+                if (charactersUnlocked) {
+                    ctx.fillText('Press P for Characters Menu', canvas.width / 2, startY + lines.length * lineHeight + 160);
+                }
                 ctx.textAlign = 'left';
                 console.log('Menu drawn');
                 return;
             }
 
             if (gameState === 'cheats') {
-                // Draw cheats menu
                 ctx.fillStyle = 'cyan';
                 ctx.font = '24px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText('CHEATS MENU', canvas.width / 2, canvas.height / 2 - 40);
+                ctx.fillText('CHEATS MENU', canvas.width / 2, canvas.height / 2 - 80);
                 ctx.fillStyle = 'yellow';
-                ctx.fillText('Press 1 for Godmode', canvas.width / 2, canvas.height / 2);
+                ctx.fillText('Please Enter Cheat Code:', canvas.width / 2, canvas.height / 2 - 40);
+                ctx.fillText(cheatInput, canvas.width / 2, canvas.height / 2);
+                ctx.fillStyle = cheatMessage.includes('Invalid') ? 'red' : 'lime';
+                ctx.fillText(cheatMessage, canvas.width / 2, canvas.height / 2 + 40);
+                ctx.fillStyle = 'cyan';
+                ctx.fillText('Press Escape to return to Title Screen', canvas.width / 2, canvas.height / 2 + 80);
                 ctx.textAlign = 'left';
-                console.log('Cheats menu');
+                return;
+            }
+
+            if (gameState === 'characters') {
+                ctx.fillStyle = 'cyan';
+                ctx.font = '24px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('CHARACTERS MENU', canvas.width / 2, canvas.height / 2 - 120);
+                ctx.fillStyle = 'cyan';
+                ctx.fillText('Press 1 for Cyan Cube', canvas.width / 2, canvas.height / 2 - 80);
+                ctx.fillStyle = 'red';
+                ctx.fillText('Press 2 for Red Cube', canvas.width / 2, canvas.height / 2 - 40);
+                ctx.fillStyle = 'yellow';
+                ctx.fillText('Press 3 for Yellow Triangle', canvas.width / 2, canvas.height / 2);
+                ctx.fillStyle = 'lime';
+                ctx.fillText('Press 4 for Green Rectangle', canvas.width / 2, canvas.height / 2 + 40);
+                ctx.fillStyle = 'purple';
+                ctx.fillText('Press 5 for Shadow Crystal', canvas.width / 2, canvas.height / 2 + 80);
+                ctx.fillStyle = 'orange';
+                ctx.fillText('Press 6 for Amber Gyroid', canvas.width / 2, canvas.height / 2 + 120);
+                ctx.fillStyle = 'yellow';
+                ctx.fillText('Press 7 for Hexagonizer', canvas.width / 2, canvas.height / 2 + 160);
+                ctx.fillStyle = 'cyan';
+                ctx.fillText('Press Escape to return to Title Screen', canvas.width / 2, canvas.height / 2 + 200);
+                ctx.textAlign = 'left';
                 return;
             }
 
             if (gameState === 'bossRush') {
-                // Draw boss rush menu
                 ctx.fillStyle = 'cyan';
                 ctx.font = '24px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText('BOSS RUSH MENU', canvas.width / 2, canvas.height / 2 - 40);
+                ctx.fillText('BOSS RUSH', canvas.width / 2, canvas.height / 2 - 80);
                 ctx.fillStyle = 'yellow';
-                ctx.fillText('Press 1 for Shadow Crystal', canvas.width / 2, canvas.height / 2);
+                ctx.fillText('Press 1 for Shadow Crystal', canvas.width / 2, canvas.height / 2 - 40);
+                ctx.fillText('Press 2 for Amber Gyroid', canvas.width / 2, canvas.height / 2);
+                ctx.fillText('Press 3 for Hexagonizer', canvas.width / 2, canvas.height / 2 + 40);
+                ctx.fillStyle = 'cyan';
+                ctx.fillText('Press Escape to return to Title Screen', canvas.width / 2, canvas.height / 2 + 80);
                 ctx.textAlign = 'left';
-                console.log('Boss Rush menu');
                 return;
             }
 
-            // draw cube afterimages
             for (let a of cubeAfterimages) {
-                ctx.fillStyle = `rgba(0,255,255,${a.opacity})`;
-                ctx.fillRect(a.x, a.y, a.size, a.size);
-            }
-
-            // draw lasers afterimages
-            for (let a of laserAfterimages) {
-                ctx.fillStyle = `rgba(${a.color === 'pink' ? '255,105,180' : '255,0,0'
+                ctx.strokeStyle = ctx.fillStyle = `rgba(${a.type === 'cube' ? '0,255,255' :
+                        a.type === 'redCube' ? '255,0,0' :
+                            a.type === 'yellowTriangle' ? '255,255,0' :
+                                a.type === 'greenRectangle' ? '50,205,50' :
+                                    a.type === 'shadowCrystal' ? '128,0,128' :
+                                        a.type === 'amberGyroid' ? '255,165,0' :
+                                            '255,255,0'
                     },${a.opacity})`;
-                ctx.fillRect(a.x, a.y, a.size, a.size);
+                if (a.type === 'cube' || a.type === 'redCube' || a.type === 'greenRectangle') {
+                    ctx.fillRect(a.x, a.y, a.width, a.height);
+                } else if (a.type === 'yellowTriangle') {
+                    ctx.beginPath();
+                    ctx.moveTo(a.x + a.width / 2, a.y);
+                    ctx.lineTo(a.x, a.y + a.height);
+                    ctx.lineTo(a.x + a.width, a.y + a.height);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (a.type === 'shadowCrystal') {
+                    ctx.beginPath();
+                    ctx.moveTo(a.x + a.width / 2, a.y);
+                    ctx.lineTo(a.x + a.width, a.y + a.height / 2);
+                    ctx.lineTo(a.x + a.width / 2, a.y + a.height);
+                    ctx.lineTo(a.x, a.y + a.height / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (a.type === 'amberGyroid') {
+                    ctx.beginPath();
+                    ctx.arc(a.x + a.width / 2, a.y + a.height / 2, a.width / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (a.type === 'hexagonizer') {
+                    ctx.save();
+                    ctx.translate(a.x + a.width / 2, a.y + a.height / 2);
+                    ctx.rotate(a.rotation);
+                    ctx.beginPath();
+                    for (let i = 0; i < 6; i++) {
+                        const angle = i * Math.PI / 3;
+                        const x = a.width / 2 * Math.cos(angle);
+                        const y = a.width / 2 * Math.sin(angle);
+                        ctx[i === 0 ? 'moveTo' : 'lineTo'](x, y);
+                    }
+                    ctx.closePath();
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                    ctx.restore();
+                }
             }
 
-            // draw cube
-            ctx.fillStyle = cube.color;
-            ctx.fillRect(cube.x, cube.y, cube.size, cube.size);
+            for (let a of laserAfterimages) {
+                ctx.fillStyle = `rgba(${a.color === 'pink' ? '255,105,180' :
+                        a.color === 'orange' ? '255,165,0' :
+                            a.color === 'lime' ? '0,255,0' :
+                                '255,0,0'
+                    },${a.opacity})`;
+                ctx.beginPath();
+                ctx.rect(a.x, a.y, a.size, a.size);
+                ctx.fill();
+                if (a.outlineColor) {
+                    ctx.strokeStyle = `rgba(0,100,0,${a.opacity})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            }
 
-            // draw enemies
+            ctx.strokeStyle = ctx.fillStyle = player.color;
+            if (player.type === 'cube' || player.type === 'redCube' || player.type === 'greenRectangle') {
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+            } else if (player.type === 'yellowTriangle') {
+                ctx.beginPath();
+                ctx.moveTo(player.x + player.width / 2, player.y);
+                ctx.lineTo(player.x, player.y + player.height);
+                ctx.lineTo(player.x + player.width, player.y + player.height);
+                ctx.closePath();
+                ctx.fill();
+            } else if (player.type === 'shadowCrystal') {
+                ctx.beginPath();
+                ctx.moveTo(player.x + player.width / 2, player.y);
+                ctx.lineTo(player.x + player.width, player.y + player.height / 2);
+                ctx.lineTo(player.x + player.width / 2, player.y + player.height);
+                ctx.lineTo(player.x, player.y + player.height / 2);
+                ctx.closePath();
+                ctx.fill();
+            } else if (player.type === 'amberGyroid') {
+                ctx.beginPath();
+                ctx.arc(player.x + player.width / 2, player.y + player.height / 2, player.width / 2, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (player.type === 'hexagonizer') {
+                ctx.save();
+                ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+                ctx.rotate(player.rotation);
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = i * Math.PI / 3;
+                    const x = player.width / 2 * Math.cos(angle);
+                    const y = player.width / 2 * Math.sin(angle);
+                    ctx[i === 0 ? 'moveTo' : 'lineTo'](x, y);
+                }
+                ctx.closePath();
+                ctx.lineWidth = 4;
+                ctx.stroke();
+                ctx.restore();
+            }
+
             for (let e of enemies) {
                 if (e.type === 'red') {
                     ctx.fillStyle = 'red';
@@ -779,44 +1387,60 @@ Developed by: GinkleJeff
                 } else if (e.type === 'yellow') {
                     ctx.fillStyle = 'yellow';
                     ctx.beginPath();
-                    ctx.moveTo(e.x + e.width / 2, e.y); // Top
-                    ctx.lineTo(e.x, e.y + e.height); // Bottom-left
-                    ctx.lineTo(e.x + e.width, e.y + e.height); // Bottom-right
+                    ctx.moveTo(e.x + e.width / 2, e.y);
+                    ctx.lineTo(e.x, e.y + e.height);
+                    ctx.lineTo(e.x + e.width, e.y + e.height);
                     ctx.closePath();
                     ctx.fill();
                 }
             }
 
-            // draw boss
-            drawBoss();
+            drawBosses();
 
-            // draw lasers
             for (let l of lasers) {
-                ctx.fillStyle = l.isBossLaser ? 'pink' : 'red';
-                ctx.fillRect(l.x, l.y, l.size, l.size);
+                ctx.fillStyle = l.color || (l.isBossLaser ? l.color || 'pink' : 'red');
+                ctx.beginPath();
+                ctx.rect(l.x, l.y, l.size, l.size);
+                ctx.fill();
+                if (l.outlineColor) {
+                    ctx.strokeStyle = l.outlineColor;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
             }
 
-            // draw healing items
             for (let h of healingItems) {
                 ctx.fillStyle = 'pink';
                 ctx.fillRect(h.x, h.y, h.size, h.size);
             }
 
-            // draw particles
             for (let p of particles) {
                 ctx.fillStyle = `rgba(${p.color === 'red' ? '255,0,0' :
                         p.color === 'green' ? '0,255,0' :
                             p.color === 'lime' ? '50,205,50' :
                                 p.color === 'purple' ? '128,0,128' :
                                     p.color === 'pink' ? '255,105,180' :
-                                        '255,255,0'
+                                        p.color === 'orange' ? '255,165,0' :
+                                            p.color === 'cyan' ? '0,255,255' :
+                                                '255,255,0'
                     },${p.opacity})`;
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx.fill();
+                if (p.isTriangle) {
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.rotation);
+                    ctx.moveTo(0, -p.size);
+                    ctx.lineTo(p.size * Math.cos(Math.PI * 2 / 3), p.size * Math.sin(Math.PI * 2 / 3));
+                    ctx.lineTo(p.size * Math.cos(Math.PI * 4 / 3), p.size * Math.sin(Math.PI * 4 / 3));
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                } else {
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
 
-            // draw score with scale animation
             ctx.save();
             ctx.translate(20, 60);
             ctx.scale(scoreScale, scoreScale);
@@ -825,22 +1449,23 @@ Developed by: GinkleJeff
             ctx.fillText(`Score: ${score}`, 0, 0);
             ctx.restore();
 
-            // draw combo if any
             if (combo > 1) {
                 ctx.fillStyle = 'yellow';
                 ctx.font = '28px monospace';
                 ctx.fillText(`Combo x${combo}`, 20, 100);
             }
 
-            // draw health
-            ctx.fillStyle = cube.health > 2 ? 'lime' : 'red';
+            ctx.fillStyle = player.health > player.maxHealth / 2 ? 'lime' : 'red';
             ctx.font = '32px monospace';
             ctx.shadowColor = 'black';
             ctx.shadowBlur = 4;
-            ctx.fillText(`❤ ${cube.health}`, 20, 140);
+            ctx.fillText(`❤ ${player.health}`, 20, 140);
             ctx.shadowBlur = 0;
 
-            // draw score popups
+            ctx.fillStyle = 'cyan';
+            ctx.font = '32px monospace';
+            ctx.fillText(`Wave: ${waveCount}`, 20, 180);
+
             ctx.fillStyle = 'cyan';
             ctx.font = '24px monospace';
             ctx.textAlign = 'center';
@@ -852,25 +1477,24 @@ Developed by: GinkleJeff
             ctx.textAlign = 'left';
         }
 
+        console.log('Script start');
+        loop();
+
         function loop() {
             update();
             draw();
             requestAnimationFrame(loop);
         }
 
-        console.log('Script start');
-        loop();
-
-        // resize handler
         window.addEventListener('resize', () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            // Ensure cube stays in bounds on resize
-            if (cube.x + cube.size > canvas.width) cube.x = canvas.width - cube.size;
-            if (cube.y + cube.size > canvas.height) cube.y = canvas.height - cube.size;
-            if (cube.x < 0) cube.x = 0;
-            if (cube.y < 0) cube.y = 0;
+            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+            if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+            if (player.x < 0) player.x = 0;
+            if (player.y < 0) player.y = 0;
         });
     </script>
 </body>
 </html>
+Fuck
