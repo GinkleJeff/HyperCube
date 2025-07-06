@@ -1,15 +1,14 @@
 HYPERCUBE
-NEW V1.4 UPDATE PATCH NOTES BAYBEEE!!
+NEW V1.5 UPDATE PATCH NOTES BAYBEEE!!
 
-Added Cheats Menu (press C in the main menu)
+Added New Cheats in the Menu (press ~ in the main menu)
 
-Only one cheat for now: GODMODE (invincible cube)
+Added new Bosses in Rush Mode (jump straight to the boss with B in main menu)
 
-Added Boss Rush Mode (jump straight to the boss with B in main menu)
+Also added new bosses in the main game (waves 10, 20, and 30, is where you fight them)
 
-After beating 10 waves in the base game, you now fight the new boss: SHADOW CRYSTAL
 
-Features
+
 Cyan Cube of Death: You move fast, you kill on contact.
 
 Score System: Gain points by killing enemies.
