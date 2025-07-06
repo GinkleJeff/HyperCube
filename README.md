@@ -7,6 +7,8 @@ Added new Bosses in Rush Mode (jump straight to the boss with B in main menu)
 
 Also added new bosses in the main game (waves 10, 20, and 30, is where you fight them)
 
+New Title Screeeen! (so cool and good looking)
+
 That is it for now, aside from new cheatcode system which i'll put in in normal features.
 
 HYPERCUBE
