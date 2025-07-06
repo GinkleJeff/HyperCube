@@ -51,8 +51,12 @@ More updates coming soon.
 
 CHEATSCODES:
 cubeforthecubegod - GODMODE
+
 iamsolame - 999 Healing cubes literally everywhere (Kinda Laggy)
+
 protocal.v_activated - One hit kill bosses
+
 shape_warcrimes - unlock all enemys as playable characters (Includes bosses, kinda broken sometimes because i gave up lol)
+
 
 That's it for now.
