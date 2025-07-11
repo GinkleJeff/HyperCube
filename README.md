@@ -1,15 +1,15 @@
 HYPERCUBE
-NEW V1.5 UPDATE PATCH NOTES BAYBEEE!!
+NEW V1.6 UPDATE PATCH NOTES BAYBEEE!!
 
-Added New Cheats in the Menu (press ~ in the main menu)
+Removed shape_warcrimes Cheat in the Menu (press ~ in the main menu)
 
-Added new Bosses in Rush Mode (jump straight to the boss with B in main menu)
+Added a new Boss in Rush Mode (jump straight to the boss with B in main menu)
 
-Also added new bosses in the main game (waves 10, 20, and 30, is where you fight them)
+Added a new favicon!
 
-New Title Screeeen! (so cool and good looking)
+Added a dash mechanic, press ctrl while holding any direction!
 
-That is it for now, aside from new cheatcode system which i'll put in in normal features.
+That is it for now,
 
 HYPERCUBE
 
@@ -44,21 +44,23 @@ WASD / Arrow Keys – Move
 
 Spacebar – Heal (costs 10,000 score)
 
+Ctrl - Dash (Also grants invincibility for around 20 frames at 60fps)
+
 ~ – Open Cheats Menu (in main menu)
+
+B - Opens Bush Rush menu (currently only 4 bosses)
 
 Enter – Start game / confirm
 
 Clean. Fast. Violent.
 More updates coming soon.
 
-CHEATSCODES:
+CHEATCODES:
 cubeforthecubegod - GODMODE
 
 iamsolame - 999 Healing cubes literally everywhere (Kinda Laggy)
 
 protocal.v_activated - One hit kill bosses
-
-shape_warcrimes - unlock all enemys as playable characters (Includes bosses, kinda broken sometimes because i gave up lol)
 
 
 That's it for now.
