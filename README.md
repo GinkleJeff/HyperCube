@@ -1,21 +1,15 @@
-HYPERCUBE
-NEW V1.6 UPDATE PATCH NOTES BAYBEEE!!
+HYPERCUBE 
+NEW V1.7 UPDATE UPDATE NOTES LETS FUCKING GOOOOOOOOOOO
 
-Removed shape_warcrimes Cheat in the Menu (press ~ in the main menu)
+Added the FINAL Boss "Gear or Guilt" which totally isnt named after anything what are you talking about bruv
 
-Added a new Boss in Rush Mode (jump straight to the boss with B in main menu)
+Added NIGHTMARE mode (occurs after wave 50, and the defeat of GoG)
 
-Added a new favicon!
+HyperCube
 
-Added a dash mechanic, press ctrl while holding any direction!
+you play as a cyan cube that moves extremely fast
 
-That is it for now,
-
-HYPERCUBE
-
-Cyan Cube of Death: You move fast, you kill on contact.
-
-Score System: Gain points by killing enemies.
+Score System: Gain points by killing enemies. (running into them)
 
 Healing Mechanic:
 
@@ -29,15 +23,13 @@ Red Cubes: Chase you down
 
 Green Rectangles: Wall-mounted enemies that shoot lasers
 
-Yellow Triangles: Only vulnerable if you have a combo of x6 or higher
-
-Afterimages & Particles: Visual effects for movement and attacks
+Yellow Triangles: Only vulnerable if you have a combo of x6 or higher (12 in nightmare)
 
 Dynamic Score Display: Increases size, shakes, and shows a "+X Pts!" effect when scoring
 
-Main Menu: Includes standard and boss rush modes, new cheatcode system too!
+Main Menu: Includes standard and boss rush modes, and a nifty cheat menu.
 
-Combo System, multiplies every kill's score by 2 (I Think)
+Combo System, multiplies every kill's score by 2 (i think, i deadass dont rememebr the combo system's math)
 
 Controls
 WASD / Arrow Keys – Move
@@ -52,15 +44,12 @@ B - Opens Bush Rush menu (currently only 4 bosses)
 
 Enter – Start game / confirm
 
-Clean. Fast. Violent.
-More updates coming soon.
-
 CHEATCODES:
 cubeforthecubegod - GODMODE
 
 iamsolame - 999 Healing cubes literally everywhere (Kinda Laggy)
 
-protocal.v_activated - One hit kill bosses
+bighugmug - One hit kill bosses
 
 
-That's it for now.
+more updates whenever the fuck i feel like it.
